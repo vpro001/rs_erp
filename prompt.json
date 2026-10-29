@@ -1,0 +1,298 @@
+{
+  "app_metadata": {
+    "name": "Royal Solutions ERP",
+    "description": "Unified platform serving three core requirements: Learning Management (LMS), Client Relationship Management (CRM), and Internal Operational Control (Staff, Finance, Complaints).",
+    "replication_stack": {
+      "backend": "PHP 8.1+ (Procedural and page-centric structure; NOT MVC, no routing framework. Each page is a standalone script combining business logic and UI templates, referencing shared inclusion helpers)",
+      "database": "MySQL (using native mysqli extension with strict parameterized prepared statements)",
+      "frontend": "HTML5, Vanilla JS, Tailwind CSS CDN (v3/v4), Google Fonts (Outfit / Inter), Lucide Icons (via CDN)",
+      "authentication": "Custom Session-based auth with OTP (One-Time Password) login verification",
+      "payments": "Paystack API Integration (simulated and live gateway support)"
+    }
+  },
+  "ui_design_guidelines": {
+    "aesthetics": "Premium modern web design, superior to the React implementation in visual styling.",
+    "theme": {
+      "mode": "Light Mode only (dark mode removed)",
+      "colors": {
+        "light": {
+          "background": "bg-[#f8fafc]",
+          "card": "bg-white border-[#e2e8f0] shadow-sm",
+          "text_primary": "text-slate-900",
+          "text_secondary": "text-slate-500",
+          "accent": "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-750 text-white",
+          "border": "border-slate-200"
+        }
+      },
+      "fonts": {
+        "primary": "Outfit, sans-serif",
+        "monospace": "Fira Code, monospace (used for codes, transactions, signatures)"
+      }
+    },
+    "features": [
+      "Glassmorphism styling (backdrop-blur-md on cards and overlays)",
+      "Micro-animations on hover (scale, shadow glow, slide transitions)",
+      "Skeletons and spinners for asynchronous/fetching states (using HTML templates)",
+      "Interactive widgets with real-time UI response (e.g. search filters, tab toggles without full reload where applicable)",
+      "Highly responsive layouts optimized for Mobile, Tablet, and Desktop screens"
+    ]
+  },
+  "directory_structure": {
+    "root": {
+      "config": "Core configuration files (db_connection.php, settings.php).",
+      "includes": "Shared layout templates (header.php, footer.php, sidebar.php, auth_guard.php, helpers.php).",
+      "uploads": "Folders for housing uploaded files (assignments, documents, profiles).",
+      "assets": "Static css (for custom scrollbars and animations) and vanilla javascripts.",
+      "api": "Independent PHP action endpoints serving JSON data back to Ajax requests (OTP verify, forum likes, search filters).",
+      "login.php": "Entry page presenting sign-in/sign-up forms and OTP validation overlay.",
+      "student/": "Standalone student portal pages (dashboard.php, my_courses.php, learning_view.php, assignments.php, results.php, billing.php, forum.php).",
+      "client/": "Standalone client portal pages (dashboard.php, projects.php, proposals.php, billing.php, vault.php, meetings.php).",
+      "staff/": "Standalone staff/instructor pages (dashboard.php, classes.php, grading.php, upload_resource.php).",
+      "admin/": "Standalone administrative pages (dashboard.php, user_control.php, course_setup.php, project_control.php, ledger.php, reports.php)."
+    }
+  },
+  "database_schema": {
+    "driver": "mysqli",
+    "tables": {
+      "users": {
+        "description": "Main user accounts table, replacing Clerk user records.",
+        "sql": "CREATE TABLE users (\n  id VARCHAR(36) PRIMARY KEY,\n  email VARCHAR(191) UNIQUE NOT NULL,\n  username VARCHAR(191) UNIQUE NULL,\n  first_name VARCHAR(100) NOT NULL,\n  last_name VARCHAR(100) NOT NULL,\n  phone VARCHAR(20) NULL,\n  avatar VARCHAR(255) NULL,\n  status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION') DEFAULT 'ACTIVE',\n  role ENUM('STUDENT', 'CLIENT', 'STAFF', 'ADMIN', 'MANAGER') DEFAULT 'STUDENT',\n  referral_code VARCHAR(50) UNIQUE NULL,\n  last_active DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  email_verified TINYINT(1) DEFAULT 0,\n  password_hash VARCHAR(255) NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "profiles": {
+        "description": "Extended profile details for users.",
+        "sql": "CREATE TABLE profiles (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) UNIQUE NOT NULL,\n  full_name VARCHAR(200) NULL,\n  bio TEXT NULL,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "user_settings": {
+        "description": "User preferences and security settings.",
+        "sql": "CREATE TABLE user_settings (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) UNIQUE NOT NULL,\n  language VARCHAR(50) DEFAULT 'english',\n  timezone VARCHAR(100) DEFAULT 'Africa/Lagos',\n  email_notifications TINYINT(1) DEFAULT 1,\n  sms_notifications TINYINT(1) DEFAULT 0,\n  push_notifications TINYINT(1) DEFAULT 1,\n  assignment_reminders TINYINT(1) DEFAULT 1,\n  grade_alerts TINYINT(1) DEFAULT 1,\n  class_reminders TINYINT(1) DEFAULT 1,\n  announcements TINYINT(1) DEFAULT 1,\n  marketing_emails TINYINT(1) DEFAULT 0,\n  privacy_visibility VARCHAR(50) DEFAULT 'public',\n  show_email TINYINT(1) DEFAULT 0,\n  show_phone TINYINT(1) DEFAULT 0,\n  data_sharing TINYINT(1) DEFAULT 1,\n  analytics TINYINT(1) DEFAULT 1,\n  two_factor_enabled TINYINT(1) DEFAULT 0,\n  login_alerts TINYINT(1) DEFAULT 1,\n  session_timeout VARCHAR(50) DEFAULT '30',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "balances": {
+        "description": "System balance tracking per user (wallet balance / virtual funds).",
+        "sql": "CREATE TABLE balances (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) NOT NULL,\n  amount DECIMAL(15,2) DEFAULT 0.00,\n  currency VARCHAR(10) DEFAULT 'USD',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "sessions": {
+        "description": "User active sessions logs for token verification.",
+        "sql": "CREATE TABLE sessions (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) NOT NULL,\n  token VARCHAR(255) UNIQUE NOT NULL,\n  expires_at DATETIME NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "activities": {
+        "description": "Activity logger for security auditing.",
+        "sql": "CREATE TABLE activities (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) NOT NULL,\n  action VARCHAR(255) NOT NULL,\n  details JSON NULL,\n  ip_address VARCHAR(45) NULL,\n  user_agent VARCHAR(255) NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "notifications": {
+        "description": "Real-time user notification messages.",
+        "sql": "CREATE TABLE notifications (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) NOT NULL,\n  title VARCHAR(255) NOT NULL,\n  message TEXT NOT NULL,\n  type VARCHAR(50) DEFAULT 'GENERAL',\n  priority ENUM('LOW', 'MEDIUM', 'HIGH') DEFAULT 'MEDIUM',\n  is_read TINYINT(1) DEFAULT 0,\n  archived TINYINT(1) DEFAULT 0,\n  link VARCHAR(255) NULL,\n  metadata JSON NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,\n  INDEX idx_user_read (user_id, is_read),\n  INDEX idx_user_created (user_id, created_at),\n  INDEX idx_user_archived (user_id, archived)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "students": {
+        "description": "Student-specific dashboard profiles.",
+        "sql": "CREATE TABLE students (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) UNIQUE NOT NULL,\n  student_id VARCHAR(50) UNIQUE NOT NULL,\n  enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  preferred_time VARCHAR(100) NULL,\n  lecture_mode ENUM('ONLINE', 'OFFLINE', 'HYBRID') DEFAULT 'ONLINE',\n  payment_method VARCHAR(50) NULL,\n  profile_complete TINYINT(1) DEFAULT 0,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "clients": {
+        "description": "Client profile records.",
+        "sql": "CREATE TABLE clients (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) UNIQUE NOT NULL,\n  client_id VARCHAR(50) UNIQUE NOT NULL,\n  company_name VARCHAR(200) NULL,\n  contact_person VARCHAR(200) NULL,\n  website VARCHAR(255) NULL,\n  industry VARCHAR(100) NULL,\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "staff": {
+        "description": "Internal staff credentials and assignments.",
+        "sql": "CREATE TABLE staff (\n  id VARCHAR(36) PRIMARY KEY,\n  user_id VARCHAR(36) UNIQUE NOT NULL,\n  staff_id VARCHAR(50) UNIQUE NOT NULL,\n  employee_id VARCHAR(50) UNIQUE NOT NULL,\n  department VARCHAR(100) NOT NULL,\n  position VARCHAR(100) NOT NULL,\n  hire_date DATETIME NOT NULL,\n  salary DECIMAL(15,2) NULL,\n  status ENUM('ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED') DEFAULT 'ACTIVE',\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "staff_updates": {
+        "description": "Audit updates on staff roles, category changes, and administrative actions.",
+        "sql": "CREATE TABLE staff_updates (\n  id VARCHAR(36) PRIMARY KEY,\n  staff_id VARCHAR(36) NOT NULL,\n  type ENUM('ASSESSMENT', 'QUERY', 'PROMOTION', 'TERMINATION', 'LEAVE', 'TRAINING') NOT NULL,\n  title VARCHAR(200) NOT NULL,\n  description TEXT NOT NULL,\n  date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  created_by VARCHAR(100) NOT NULL,\n  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "performance_reviews": {
+        "description": "HR assessment of staff performance.",
+        "sql": "CREATE TABLE performance_reviews (\n  id VARCHAR(36) PRIMARY KEY,\n  staff_id VARCHAR(36) NOT NULL,\n  review_period VARCHAR(100) NOT NULL,\n  rating INT DEFAULT 1,\n  feedback TEXT NULL,\n  goals TEXT NULL,\n  review_date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  reviewed_by VARCHAR(100) NOT NULL,\n  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "course_categories": {
+        "description": "Course categories.",
+        "sql": "CREATE TABLE course_categories (\n  id VARCHAR(36) PRIMARY KEY,\n  name VARCHAR(191) UNIQUE NOT NULL,\n  description TEXT NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "courses": {
+        "description": "Academic classes / course catalogs.",
+        "sql": "CREATE TABLE courses (\n  id VARCHAR(36) PRIMARY KEY,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  thumbnail VARCHAR(255) NULL,\n  price DECIMAL(15,2) NOT NULL,\n  duration VARCHAR(100) NOT NULL,\n  level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') DEFAULT 'BEGINNER',\n  mode ENUM('ONLINE', 'OFFLINE', 'HYBRID') DEFAULT 'ONLINE',\n  status ENUM('ACTIVE', 'INACTIVE', 'DRAFT', 'ARCHIVED') DEFAULT 'ACTIVE',\n  max_enrollment INT NULL,\n  allow_installment TINYINT(1) DEFAULT 0,\n  installment_count INT NULL,\n  installment_amount DECIMAL(15,2) NULL,\n  instructor_id VARCHAR(36) NULL,\n  category_id VARCHAR(36) NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (instructor_id) REFERENCES staff(id) ON DELETE SET NULL,\n  FOREIGN KEY (category_id) REFERENCES course_categories(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "modules": {
+        "description": "Chapters or modules structure under a specific course.",
+        "sql": "CREATE TABLE modules (\n  id VARCHAR(36) PRIMARY KEY,\n  course_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  order_num INT NOT NULL,\n  is_active TINYINT(1) DEFAULT 1,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "lessons": {
+        "description": "Individual lessons under a specific module.",
+        "sql": "CREATE TABLE lessons (\n  id VARCHAR(36) PRIMARY KEY,\n  module_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  content TEXT NULL,\n  video_url VARCHAR(255) NULL,\n  duration VARCHAR(50) NULL,\n  order_num INT NOT NULL,\n  is_free TINYINT(1) DEFAULT 0,\n  FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "course_resources": {
+        "description": "General resource documents and files attached to courses.",
+        "sql": "CREATE TABLE course_resources (\n  id VARCHAR(36) PRIMARY KEY,\n  course_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  type ENUM('VIDEO', 'DOCUMENT', 'PRESENTATION', 'AUDIO', 'LINK', 'OTHER') NOT NULL,\n  url VARCHAR(255) NULL,\n  file_path VARCHAR(255) NULL,\n  size VARCHAR(50) NULL,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "classes": {
+        "description": "Assigned cohort or class instances of a course.",
+        "sql": "CREATE TABLE classes (\n  id VARCHAR(36) PRIMARY KEY,\n  course_id VARCHAR(36) NOT NULL,\n  name VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  start_date DATETIME NULL,\n  end_date DATETIME NULL,\n  capacity INT NULL,\n  status ENUM('ACTIVE', 'INACTIVE', 'COMPLETED', 'CANCELLED') DEFAULT 'ACTIVE',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "class_students": {
+        "description": "Pivot table assigning students to active classes.",
+        "sql": "CREATE TABLE class_students (\n  id VARCHAR(36) PRIMARY KEY,\n  class_id VARCHAR(36) NOT NULL,\n  student_id VARCHAR(36) NOT NULL,\n  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  assigned_by VARCHAR(100) NULL,\n  status ENUM('ACTIVE', 'SUSPENDED', 'DROPPED', 'COMPLETED') DEFAULT 'ACTIVE',\n  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_class_student (class_id, student_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "class_staff": {
+        "description": "Pivot table assigning staff to manage/teach classes.",
+        "sql": "CREATE TABLE class_staff (\n  id VARCHAR(36) PRIMARY KEY,\n  class_id VARCHAR(36) NOT NULL,\n  staff_id VARCHAR(36) NOT NULL,\n  role VARCHAR(100) NULL,\n  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,\n  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_class_staff (class_id, staff_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "class_resources": {
+        "description": "Resource materials specifically uploaded for individual classes.",
+        "sql": "CREATE TABLE class_resources (\n  id VARCHAR(36) PRIMARY KEY,\n  class_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  type ENUM('VIDEO', 'DOCUMENT', 'PRESENTATION', 'AUDIO', 'LINK', 'OTHER') NOT NULL,\n  url VARCHAR(255) NULL,\n  file_path VARCHAR(255) NULL,\n  file_size VARCHAR(50) NULL,\n  uploaded_by VARCHAR(36) NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,\n  FOREIGN KEY (uploaded_by) REFERENCES staff(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "enrollments": {
+        "description": "Student course enrollment and status tracking.",
+        "sql": "CREATE TABLE enrollments (\n  id VARCHAR(36) PRIMARY KEY,\n  student_id VARCHAR(36) NOT NULL,\n  course_id VARCHAR(36) NOT NULL,\n  enrollment_date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  status ENUM('ACTIVE', 'COMPLETED', 'DROPPED', 'SUSPENDED') DEFAULT 'ACTIVE',\n  progress INT DEFAULT 0,\n  completion_date DATETIME NULL,\n  payment_type ENUM('FULL', 'INSTALLMENT') DEFAULT 'FULL',\n  total_paid DECIMAL(15,2) DEFAULT 0.00,\n  amount_due DECIMAL(15,2) DEFAULT 0.00,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_student_course (student_id, course_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "assignments": {
+        "description": "Student homework tasks and submissions status.",
+        "sql": "CREATE TABLE assignments (\n  id VARCHAR(36) PRIMARY KEY,\n  course_id VARCHAR(36) NOT NULL,\n  student_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  due_date DATETIME NULL,\n  status ENUM('PENDING', 'SUBMITTED', 'GRADED', 'OVERDUE') DEFAULT 'PENDING',\n  submission VARCHAR(255) NULL,\n  grade INT NULL,\n  feedback TEXT NULL,\n  submitted_at DATETIME NULL,\n  graded_at DATETIME NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "attendance": {
+        "description": "Daily or lecture class student attendance log.",
+        "sql": "CREATE TABLE attendance (\n  id VARCHAR(36) PRIMARY KEY,\n  student_id VARCHAR(36) NOT NULL,\n  date DATE NOT NULL,\n  status ENUM('PRESENT', 'ABSENT', 'LATE', 'EXCUSED') NOT NULL,\n  notes TEXT NULL,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_student_date (student_id, date)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "results": {
+        "description": "Student course exam grade logs.",
+        "sql": "CREATE TABLE results (\n  id VARCHAR(36) PRIMARY KEY,\n  student_id VARCHAR(36) NOT NULL,\n  course_id VARCHAR(36) NOT NULL,\n  exam_type VARCHAR(100) NOT NULL,\n  score INT NOT NULL,\n  max_score INT NOT NULL,\n  grade VARCHAR(10) NOT NULL,\n  exam_date DATETIME NOT NULL,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "certificates": {
+        "description": "Verifiable certificates with QR code.",
+        "sql": "CREATE TABLE certificates (\n  id VARCHAR(36) PRIMARY KEY,\n  student_id VARCHAR(36) NOT NULL,\n  course_id VARCHAR(36) NOT NULL,\n  certificate_id VARCHAR(100) UNIQUE NOT NULL,\n  qr_code VARCHAR(100) UNIQUE NOT NULL,\n  digital_signature TEXT NOT NULL,\n  issue_date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  is_valid TINYINT(1) DEFAULT 1,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "projects": {
+        "description": "CRM client projects and deliverables tracking.",
+        "sql": "CREATE TABLE projects (\n  id VARCHAR(36) PRIMARY KEY,\n  project_id VARCHAR(50) UNIQUE NOT NULL,\n  title VARCHAR(200) NOT NULL,\n  description TEXT NULL,\n  client_id VARCHAR(36) NOT NULL,\n  supervisor_id VARCHAR(36) NULL,\n  status ENUM('PLANNING', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED') DEFAULT 'PLANNING',\n  budget DECIMAL(15,2) NOT NULL,\n  start_date DATETIME NOT NULL,\n  end_date DATETIME NOT NULL,\n  progress INT DEFAULT 0,\n  category VARCHAR(100) NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,\n  FOREIGN KEY (supervisor_id) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "project_team_members": {
+        "description": "Staff members assigned to client projects.",
+        "sql": "CREATE TABLE project_team_members (\n  id VARCHAR(36) PRIMARY KEY,\n  project_id VARCHAR(36) NOT NULL,\n  staff_id VARCHAR(36) NOT NULL,\n  role VARCHAR(100) NOT NULL,\n  join_date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,\n  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_project_staff (project_id, staff_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "project_milestones": {
+        "description": "Milestone delivery plans for projects.",
+        "sql": "CREATE TABLE project_milestones (\n  id VARCHAR(36) PRIMARY KEY,\n  project_id VARCHAR(36) NOT NULL,\n  title VARCHAR(200) NOT NULL,\n  description TEXT NULL,\n  due_date DATETIME NOT NULL,\n  completed TINYINT(1) DEFAULT 0,\n  completed_at DATETIME NULL,\n  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "project_updates": {
+        "description": "Weekly status or comment log updates on projects.",
+        "sql": "CREATE TABLE project_updates (\n  id VARCHAR(36) PRIMARY KEY,\n  project_id VARCHAR(36) NOT NULL,\n  author VARCHAR(200) NOT NULL,\n  message TEXT NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "proposals": {
+        "description": "Sales proposals submitted to clients.",
+        "sql": "CREATE TABLE proposals (\n  id VARCHAR(36) PRIMARY KEY,\n  proposal_id VARCHAR(50) UNIQUE NOT NULL,\n  title VARCHAR(200) NOT NULL,\n  client_id VARCHAR(36) NOT NULL,\n  assigned_to VARCHAR(36) NULL,\n  status ENUM('DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED') DEFAULT 'DRAFT',\n  amount DECIMAL(15,2) NOT NULL,\n  category VARCHAR(100) NOT NULL,\n  description TEXT NULL,\n  services JSON NOT NULL,\n  timeline VARCHAR(100) NOT NULL,\n  valid_until DATETIME NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  response_date DATETIME NULL,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,\n  FOREIGN KEY (assigned_to) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "payments": {
+        "description": "Aggregate financial payment tracking (polymorphic integration).",
+        "sql": "CREATE TABLE payments (\n  id VARCHAR(36) PRIMARY KEY,\n  transaction_id VARCHAR(100) UNIQUE NOT NULL,\n  type ENUM('DEPOSIT', 'MILESTONE', 'FINAL', 'COURSE_FEE', 'LATE_FEE') NOT NULL,\n  amount DECIMAL(15,2) NOT NULL,\n  method ENUM('PAYSTACK', 'CREDIT_CARD', 'BANK_TRANSFER', 'USSD', 'CASH', 'MOBILE_MONEY') NOT NULL,\n  status ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'OVERDUE') DEFAULT 'PENDING',\n  description TEXT NULL,\n  due_date DATETIME NULL,\n  paid_at DATETIME NULL,\n  receipt_url VARCHAR(255) NULL,\n  paystack_reference VARCHAR(191) UNIQUE NULL,\n  paystack_access_code VARCHAR(191) NULL,\n  student_id VARCHAR(36) NULL,\n  client_id VARCHAR(36) NULL,\n  project_id VARCHAR(36) NULL,\n  course_id VARCHAR(36) NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,\n  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "installment_payments": {
+        "description": "Installment plan tracking for courses.",
+        "sql": "CREATE TABLE installment_payments (\n  id VARCHAR(36) PRIMARY KEY,\n  enrollment_id VARCHAR(36) NOT NULL,\n  installment_number INT NOT NULL,\n  amount DECIMAL(15,2) NOT NULL,\n  due_date DATETIME NOT NULL,\n  paid_date DATETIME NULL,\n  status ENUM('PENDING', 'PAID', 'OVERDUE', 'CANCELLED') DEFAULT 'PENDING',\n  paystack_reference VARCHAR(191) UNIQUE NULL,\n  paystack_access_code VARCHAR(191) NULL,\n  transaction_id VARCHAR(100) NULL,\n  reminder_sent TINYINT(1) DEFAULT 0,\n  reminder_sent_at DATETIME NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "income_records": {
+        "description": "Internal control income tracking.",
+        "sql": "CREATE TABLE income_records (\n  id VARCHAR(36) PRIMARY KEY,\n  source ENUM('TRAINING', 'SALES', 'SERVICES', 'CONSULTING', 'CERTIFICATION', 'OTHER') NOT NULL,\n  amount DECIMAL(15,2) NOT NULL,\n  description TEXT NULL,\n  date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  category VARCHAR(100) NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "expense_records": {
+        "description": "Internal control expense expenditures.",
+        "sql": "CREATE TABLE expense_records (\n  id VARCHAR(36) PRIMARY KEY,\n  category ENUM('SALARIES', 'INFRASTRUCTURE', 'MARKETING', 'OPERATIONS', 'EQUIPMENT', 'UTILITIES', 'OTHER') NOT NULL,\n  amount DECIMAL(15,2) NOT NULL,\n  description TEXT NULL,\n  date DATETIME DEFAULT CURRENT_TIMESTAMP,\n  receipt VARCHAR(255) NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "support_tickets": {
+        "description": "LMS & CRM support queries.",
+        "sql": "CREATE TABLE support_tickets (\n  id VARCHAR(36) PRIMARY KEY,\n  ticket_id VARCHAR(50) UNIQUE NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NOT NULL,\n  status ENUM('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATED') DEFAULT 'OPEN',\n  priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',\n  category VARCHAR(100) NULL,\n  student_id VARCHAR(36) NULL,\n  client_id VARCHAR(36) NULL,\n  assigned_to VARCHAR(36) NULL,\n  resolved_at DATETIME NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,\n  FOREIGN KEY (assigned_to) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "ticket_responses": {
+        "description": "Interactions between users and staff on support tickets.",
+        "sql": "CREATE TABLE ticket_responses (\n  id VARCHAR(36) PRIMARY KEY,\n  ticket_id VARCHAR(36) NOT NULL,\n  author VARCHAR(200) NOT NULL,\n  message TEXT NOT NULL,\n  is_staff TINYINT(1) DEFAULT 0,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "complaints": {
+        "description": "Customer complaints tracking log.",
+        "sql": "CREATE TABLE complaints (\n  id VARCHAR(36) PRIMARY KEY,\n  complaint_id VARCHAR(50) UNIQUE NOT NULL,\n  customer_id VARCHAR(36) NOT NULL,\n  customer_type ENUM('STUDENT', 'CLIENT', 'STAFF', 'ADMIN', 'MANAGER') NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  details TEXT NOT NULL,\n  status ENUM('OPEN', 'ADDRESSED', 'SORTED', 'CLOSED') DEFAULT 'OPEN',\n  priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',\n  assigned_to VARCHAR(36) NULL,\n  resolved_at DATETIME NULL,\n  resolution TEXT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (assigned_to) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "forum_posts": {
+        "description": "Interactive student community forum topic posts.",
+        "sql": "CREATE TABLE forum_posts (\n  id VARCHAR(36) PRIMARY KEY,\n  student_id VARCHAR(36) NOT NULL,\n  course_id VARCHAR(36) NULL,\n  title VARCHAR(200) NOT NULL,\n  content TEXT NOT NULL,\n  category VARCHAR(100) NULL,\n  tags JSON NULL,\n  is_pinned TINYINT(1) DEFAULT 0,\n  is_resolved TINYINT(1) DEFAULT 0,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "forum_replies": {
+        "description": "Community forum topic replies.",
+        "sql": "CREATE TABLE forum_replies (\n  id VARCHAR(36) PRIMARY KEY,\n  post_id VARCHAR(36) NOT NULL,\n  student_id VARCHAR(36) NOT NULL,\n  content TEXT NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "forum_post_likes": {
+        "description": "Likes tracking on forum posts.",
+        "sql": "CREATE TABLE forum_post_likes (\n  id VARCHAR(36) PRIMARY KEY,\n  post_id VARCHAR(36) NOT NULL,\n  student_id VARCHAR(36) NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_post_student_like (post_id, student_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "forum_reply_likes": {
+        "description": "Likes tracking on forum replies.",
+        "sql": "CREATE TABLE forum_reply_likes (\n  id VARCHAR(36) PRIMARY KEY,\n  reply_id VARCHAR(36) NOT NULL,\n  student_id VARCHAR(36) NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (reply_id) REFERENCES forum_replies(id) ON DELETE CASCADE,\n  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,\n  UNIQUE KEY uq_reply_student_like (reply_id, student_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "meetings": {
+        "description": "Meeting schedules between client and staff.",
+        "sql": "CREATE TABLE meetings (\n  id VARCHAR(36) PRIMARY KEY,\n  title VARCHAR(191) NOT NULL,\n  description TEXT NULL,\n  client_id VARCHAR(36) NOT NULL,\n  staff_id VARCHAR(36) NULL,\n  meeting_date DATETIME NOT NULL,\n  duration INT NULL,\n  location VARCHAR(255) NULL,\n  meeting_url VARCHAR(255) NULL,\n  status ENUM('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'RESCHEDULED') DEFAULT 'SCHEDULED',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,\n  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "assessments": {
+        "description": "Client initial project requirements assessment.",
+        "sql": "CREATE TABLE assessments (\n  id VARCHAR(36) PRIMARY KEY,\n  client_id VARCHAR(36) NOT NULL,\n  assessor_id VARCHAR(36) NULL,\n  type VARCHAR(100) NOT NULL,\n  questions JSON NOT NULL,\n  score INT NULL,\n  notes TEXT NULL,\n  completed_at DATETIME NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,\n  FOREIGN KEY (assessor_id) REFERENCES staff(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "questionnaires": {
+        "description": "Structured onboarding client questionnaires.",
+        "sql": "CREATE TABLE questionnaires (\n  id VARCHAR(36) PRIMARY KEY,\n  client_id VARCHAR(36) NOT NULL,\n  title VARCHAR(191) NOT NULL,\n  questions JSON NOT NULL,\n  responses JSON NULL,\n  completed_at DATETIME NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      },
+      "documents": {
+        "description": "CRM file vault uploads.",
+        "sql": "CREATE TABLE documents (\n  id VARCHAR(36) PRIMARY KEY,\n  file_name VARCHAR(255) NOT NULL,\n  file_path VARCHAR(255) NOT NULL,\n  file_size VARCHAR(50) NULL,\n  mime_type VARCHAR(100) NULL,\n  client_id VARCHAR(36) NULL,\n  project_id VARCHAR(36) NULL,\n  uploaded_by VARCHAR(100) NOT NULL,\n  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,\n  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+      }
+    }
+  },
+  "core_feature_replication_details": {
+    "authentication_authorization": {
+      "signup_flow": "Role-based selection (Student or Client) -> Input details (Zod-equivalent server-side validation) -> Generate a verification code/OTP saved in session -> Trigger email/SMS notification (with dummy simulator log file support) -> Code entry validation -> Create record inside 'users' and associated 'students' or 'clients' tables via transactional insert.",
+      "login_flow": "Input email -> Check if user exists -> If ACTIVE, generate OTP -> Mail/SMS OTP -> Check matching OTP -> Set secure PHP Session variable with user ID, role, and last_active. Redirect user to respective dashboard (/student, /client, /staff, /admin).",
+      "route_guards": "Page-level session guards (via require_once '../includes/auth_guard.php'). Every standalone page includes this guard script at the top to check session existence and verify that the user's role has permission to access that specific portal page. Unauthenticated requests are immediately redirected back to '/login.php'."
+    },
+    "student_portal": {
+      "dashboard": "Key indicators: total course progress summary, overdue assignments count, upcoming classes widget, active forum updates list, and finance summary (unpaid balance details). Styled with cards containing hover micro-animations.",
+      "course_catalog": "Complete course listing. Filter by mode (ONLINE/OFFLINE), level, category, and title. Single course view displays description, module list, instructor bio, full price, and installment payment pricing.",
+      "learning_interface": "Sidebar listing modules and nested lessons. Main workspace contains HTML5 video player, rich-text lesson notes, file attachments download link, and a 'Mark Lesson Complete' button that increments progress counter asynchronously via AJAX.",
+      "assignments": "Tabular list of assigned homeworks showing due dates, grading status (PENDING, SUBMITTED, GRADED, OVERDUE), and grade score. Clicking details reveals submission form (PDF or zip upload with verification check) and teacher's rich-text feedback.",
+      "results_certificates": "List of exams completed. Displays raw score, max score, percentage, and grade letter. If the course is completed (100% progress and exams passed), reveals a 'Download Certificate' button. Renders certificate template with dynamic student/course metadata and a unique QR code (linking to /verify-certificate?id=...).",
+      "billing_installments": "List of transaction payments (completed and pending dues). For installment payment structure, lists amount, due date, status, and custom Paystack Checkout button triggering JS payment gateway popup.",
+      "student_forum": "Peer-to-peer discussion forum. Create post forms with course attachments, filter tags (General, Coding, Help), search queries, and real-time like/reply buttons."
+    },
+    "client_portal": {
+      "dashboard": "Metrics grid: Active projects count, approved value sum, unpaid invoices, upcoming meetings. Includes a visual project timeline widget.",
+      "projects_tracker": "List of client projects retrieved from database. Clicking a project reveals dynamic timeline showing completed milestones, project update timeline logged by supervisor, team members list with photo/avatar and roles, project category, and final hosting/demo links.",
+      "proposal_negotiation": "Grid of proposals submitted by admin. Includes proposal details, service list tags, timeline, and valid_until deadline. Status workflow action: DRAFT proposals can be submitted (DRAFT -> PENDING) or deleted; PENDING/APPROVED/REJECTED are read-only. Clicking 'Approve' triggers payment deposit configuration.",
+      "document_vault": "Upload project requirement details, PSD/Figma mockups, and download project deliverables uploaded by the engineering team. Supports drag-and-drop file upload with progress bar."
+    },
+    "staff_portal": {
+      "dashboard": "Quick stats panel showing assigned student counts, total classes, and assignments awaiting grading.",
+      "class_attendance": "Select class from assigned list -> Select class date -> Lists assigned students -> Tick checkbox (Present/Absent/Late/Excused) with instant single-row database save or bulk save action.",
+      "grading_center": "Lists incoming assignments from students. Allows filtering by course. Staff can view details, download uploaded files, input score grades (0-100), and write qualitative review feedback.",
+      "resource_manager": "Simple upload UI to attach videos, PDF slide handouts, and assignment outlines to course modules."
+    },
+    "admin_manager_portal": {
+      "user_administration": "Global user data table. Actions: edit roles, toggle status (ACTIVE, SUSPENDED), review comprehensive session logs and security audit trail.",
+      "course_builder": "Visual builder to add new courses, define duration/level, structure course modules sequentially, append lesson videos/text, and specify full/installment pricing.",
+      "project_assignment": "Create new projects from approved proposals. Assign staff as supervisor, assign staff team members to the project workspace, allocate budget, and track real-time milestone completions.",
+      "finance_ledger": "Dynamic ledger of income and expense records. Real-time charts showing Monthly Revenue vs Expenses, listing transactions, with manual entry overrides.",
+      "analytics_reports": "Charts representing total student enrollments, course success ratios, complaint resolution turnaround times, and staff performance metrics."
+    }
+  },
+  "security_and_validation": {
+    "mysqli_prepared_statements": "Every single query must run using parameterized statements. Prevent SQL injection by escaping all inputs, using custom query wrapper classes where appropriate.",
+    "session_security": "Use session_regenerate_id(true) on login. Set strict session lifetime. Enable session.cookie_secure and session.cookie_httponly.",
+    "csrf_protection": "Generate a unique cryptographically secure CSRF token per user session. Embed as hidden fields in all POST/PUT/DELETE forms and check matching token validation on form processing.",
+    "xss_prevention": "Implement htmlspecialchars() output escaping on all user-submitted text printed in views, especially forum posts and comments.",
+    "payment_integrity": {
+      "verification": "When Paystack callback triggers, fetch transaction status directly from Paystack API by server-side curl request.",
+      "amount_match": "Compare callback paid amount (converted from kobo) to the exact database invoice/payment record. Reject and log alert on mismatch.",
+      "idempotency": "Validate if the paystack_reference has already been processed successfully inside the database before granting enrollment or marking milestone complete.",
+      "transaction_wrapping": "Wrap payment update + enrollment creation + installment tables inserts inside database transactions. Rollback on failure to prevent inconsistent states."
+    }
+  },
+  "unimplemented_future_features": {
+    "realtime_notifications": "Implement Server-Sent Events (SSE) in PHP to push notifications directly to the student/client header bell widget when an assignment is graded or a milestone is complete.",
+    "document_versioning": "Maintain history logs on files uploaded to the CRM vault, tracking upload timestamps, file sizes, and allowing rollbacks to previous versions.",
+    "email_automation": "Implement cron-triggered script checks identifying upcoming installment deadlines and sending reminder templates via SMTP (using PHPMailer).",
+    "assessment_wizards": "Add interactive client onboarding questionnaire templates that parse user responses to auto-suggest project outline structures and budget estimates.",
+    "forum_resolved_flag": "Enable student creators or instructors to mark forum question threads as 'RESOLVED', pinning the correct instructor reply to the top.",
+    "meeting_video_integration": "Integrate embedded Jitsi Meet iframe links in scheduled meetings so that client and staff can join video chats directly inside the ERP portal."
+  }
+}

@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Replication Dashboard</title>
+
+    <!-- Deep Space Neon Theme -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Space Grotesk', 'sans-serif'],
+                        body: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        app: { bg: '#F8FAFC' },
+                        surface: {
+                            base: 'rgba(255, 255, 255, 0.85)',
+                            elevated: 'rgba(255, 255, 255, 0.95)',
+                        },
+                        accent: {
+                            cyan: '#00F0FF',
+                            purple: '#8A2BE2',
+                        },
+                        status: {
+                            success: '#00FF9D',
+                            warning: '#FFB800',
+                            danger: '#FF2A55',
+                            info: '#33F3FF',
+                        },
+                        blue: { 600: '#8A2BE2', 500: '#7B24D0', 400: '#9D50F5' },
+                        indigo: { 600: '#00F0FF', 500: '#00D8E8', 400: '#33F3FF' },
+                        emerald: { 600: '#00FF9D', 500: '#00E88C', 400: '#33FFAD' },
+                        amber: { 600: '#FFB800', 500: '#E8A700', 400: '#FFC933' },
+                        red: { 500: '#FF2A55', 600: '#E81F44', 400: '#FF5577' },
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(15, 23, 42, 0.08)',
+                        'neon-cyan': '0 0 20px rgba(0, 240, 255, 0.25), 0 0 60px rgba(0, 240, 255, 0.1)',
+                        'neon-purple': '0 0 20px rgba(138, 43, 226, 0.35), 0 0 60px rgba(138, 43, 226, 0.15)',
+                        'card-hover': '0 16px 48px rgba(15,23,42,0.1), 0 0 0 1px rgba(8,145,178,0.3)',
+                    },
+                    backgroundImage: {
+                        'gradient-neon': 'linear-gradient(135deg, #7C3AED 0%, #0891B2 100%)',
+                        'gradient-danger': 'linear-gradient(135deg, #FF2A55 0%, #FFB800 100%)',
+                        'gradient-success': 'linear-gradient(135deg, #059669 0%, #0891B2 100%)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(12px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif !important;
+            background-color: #F8FAFC !important;
+            color: #0F172A !important;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Space Grotesk', sans-serif !important;
+            letter-spacing: -0.01em;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85) !important;
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(15, 23, 42, 0.08) !important;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06) !important;
+            color: #0F172A !important;
+        }
+
+        .glass-panel-elevated {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(36px);
+            -webkit-backdrop-filter: blur(36px);
+            border: 1px solid rgba(15, 23, 42, 0.08) !important;
+            box-shadow: 0 12px 48px rgba(15, 23, 42, 0.08) !important;
+            color: #0F172A !important;
+        }
+
+        .card-hoverable {
+            transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.28s ease;
+        }
+
+        .card-hoverable:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(8, 145, 178, 0.35) !important;
+            border-color: rgba(8, 145, 178, 0.45) !important;
+        }
+
+        .btn-glass {
+            background: rgba(241, 245, 249, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            color: #0F172A !important;
+            font-weight: 600;
+            transition: all 0.22s ease;
+        }
+
+        .btn-glass:hover {
+            background: rgba(8, 145, 178, 0.1);
+            border-color: rgba(8, 145, 178, 0.4);
+            color: #0E7490 !important;
+        }
+
+        .progress-bar {
+            background: rgba(15, 23, 42, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+            height: 8px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #7C3AED 0%, #0891B2 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.12);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-in-progress {
+            background: rgba(8, 145, 178, 0.12);
+            color: #0E7490;
+            border: 1px solid rgba(8, 145, 178, 0.3);
+        }
+
+        .status-planned {
+            background: rgba(124, 58, 237, 0.12);
+            color: #6D28D9;
+            border: 1px solid rgba(124, 58, 237, 0.3);
+        }
+
+        .status-not-started {
+            background: rgba(245, 158, 11, 0.15);
+            color: #B45309;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(8, 145, 178, 0.18);
+            border-color: rgba(8, 145, 178, 0.4);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7C3AED 0%, #0891B2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(15, 23, 42, 0.55);
+            margin-top: 4px;
+        }
+
+        .feature-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: rgba(138, 43, 226, 0.1);
+            border: 1px solid rgba(138, 43, 226, 0.2);
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 2px;
+        }
+
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0891B2;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex">
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-gradient-to-t from-white to-slate-50 border-r border-slate-300 flex flex-col">
+        <div class="flex items-center justify-between px-5 pt-6 pb-4 border-b border-slate-200">
+            <div class="flex items-center space-x-3">
+                <div class="relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style="background: linear-gradient(135deg,#8A2BE2,#00F0FF);">
+                    <i data-lucide="zap" class="w-5 h-5 text-[#07080A]"></i>
+                </div>
+                <div>
+                    <span class="font-display font-bold text-slate-900 text-sm tracking-tight block">ROYAL ERP</span>
+                    <span class="font-mono text-[9px] text-cyan-600/80 tracking-widest uppercase">Replication Dashboard</span>
+                </div>
+            </div>
+            <button id="sidebar-toggle" class="lg:hidden p-2 text-slate-500 hover:text-slate-900">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <p class="text-[9px] font-display font-semibold text-slate-400 uppercase tracking-[0.12em] px-2 pt-1 pb-1">Navigation</p>
+
+            <a href="#overview" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Overview</span>
+            </a>
+
+            <a href="#student-portal" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="graduation-cap" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Student Portal</span>
+            </a>
+
+            <a href="#client-portal" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="kanban-square" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Client Portal</span>
+            </a>
+
+            <a href="#staff-portal" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="award" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Staff Portal</span>
+            </a>
+
+            <a href="#admin-portal" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="users-round" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Admin Portal</span>
+            </a>
+
+            <a href="#shared-modules" class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(138,43,226,0.1)] hover:border-[rgba(138,43,226,0.2)] border border-slate-200">
+                <i data-lucide="share-2" class="w-4 h-4 flex-shrink-0"></i>
+                <span class="text-sm">Shared Modules</span>
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-200">
+            <div class="flex items-center space-x-3 mb-2">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=40&auto=format&fit=crop"
+                     alt="Avatar" class="w-8 h-8 rounded-full object-cover border border-slate-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <p class="text-xs font-semibold text-slate-900 truncate leading-none">Victor070656</p>
+                    <span class="text-[9px] font-mono text-cyan-600/70 uppercase tracking-wider">Administrator</span>
+                </div>
+            </div>
+
+            <a href="#" class="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-semibold text-sm text-rose-600 transition-all duration-200"
+               style="background: rgba(255,42,85,0.07); border: 1px solid rgba(255,42,85,0.15);"
+               onmouseover="this.style.background='rgba(255,42,85,0.14)'; this.style.borderColor='rgba(255,42,85,0.3)';"
+               onmouseout="this.style.background='rgba(255,42,85,0.07)'; this.style.borderColor='rgba(255,42,85,0.15)';">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+                <span>Sign Out</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <!-- Header -->
+        <header class="h-16 flex items-center justify-between px-6 sticky top-0 z-40 border-b border-slate-200 bg-[#F8FAFC]/85 backdrop-blur-md">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-base font-display font-semibold text-slate-900 tracking-tight">ERP Replication Dashboard</h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <button id="notifications-toggle" class="p-2 text-slate-400 hover:text-cyan-600 bg-slate-100 border border-slate-200 rounded-lg transition-all duration-200 hover:border-cyan-300 relative">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                        <span id="notifications-badge" class="absolute top-0 right-0 w-2 h-2 bg-[#FF2A55] rounded-full ring-1 ring-slate-200 animate-pulse"></span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 p-6 overflow-y-auto">
+            <!-- Overview Section -->
+            <section id="overview" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">ERP Replication Progress Overview</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Total Progress -->
+                    <div class="glass-panel metric-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500">Overall Completion</p>
+                                <p class="text-2xl font-bold metric-value" id="overall-progress">0%</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-10 h-10">
+                                    <div class="relative w-full h-full">
+                                        <div class="absolute inset-0">
+                                            <svg class="w-full h-full" viewBox="0 0 36 36">
+                                                <path d="M18 2.0845
+                                                        a 15.9155 15.9155 0 0 1 0 31.831
+                                                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                    fill="none"
+                                                    stroke="#E2E8F0"
+                                                    stroke-width="2"
+                                                    opacity="1"/>
+                                                <path id="progress-circle"
+                                                    d="M18 2.0845
+                                                        a 15.9155 15.9155 0 0 1 0 31.831
+                                                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                    fill="none"
+                                                    stroke="url(#gradientStroke)"
+                                                    stroke-width="2"
+                                                    stroke-dasharray="100"
+                                                    stroke-dashoffset="100"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Portals Completed -->
+                    <div class="glass-panel metric-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500">Portals Completed</p>
+                                <p class="text-2xl font-bold metric-value" id="portals-completed">0/5</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="users" class="w-5 h-5 text-cyan-600/70"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features Implemented -->
+                    <div class="glass-panel metric-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500">Features Implemented</p>
+                                <p class="text-2xl font-bold metric-value" id="features-implemented">0/24</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="zap" class="w-5 h-5 text-cyan-600/70"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estimated Time Remaining -->
+                    <div class="glass-panel metric-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500">Est. Time Remaining</p>
+                                <p class="text-2xl font-bold metric-value" id="time-remaining">-</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="clock" class="w-5 h-5 text-cyan-600/70"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Details -->
+                <div class="glass-panel mb-8">
+                    <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Portal Progress Details</h3>
+                    <div class="space-y-4">
+                        <!-- Student Portal -->
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="graduation-cap" class="w-4 h-4 text-cyan-600/70"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Student Portal</p>
+                                    <p class="text-xs text-slate-400">LMS: Courses, Assignments, Results, Forum</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-24">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="student-progress" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-500" id="student-progress-text">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Client Portal -->
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="kanban-square" class="w-4 h-4 text-cyan-600/70"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Client Portal</p>
+                                    <p class="text-xs text-slate-400">CRM: Projects, Proposals, Vault</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-24">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="client-progress" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-500" id="client-progress-text">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Staff Portal -->
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="award" class="w-4 h-4 text-cyan-600/70"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Staff Portal</p>
+                                    <p class="text-xs text-slate-400">HR: Classes, Grading, Resources</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-24">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="staff-progress" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-500" id="staff-progress-text">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Admin Portal -->
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="users-round" class="w-4 h-4 text-cyan-600/70"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Admin Portal</p>
+                                    <p class="text-xs text-slate-400">Management: Users, Courses, Finance</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-24">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="admin-progress" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-500" id="admin-progress-text">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Manager Portal -->
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="layout-dashboard" class="w-4 h-4 text-cyan-600/70"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Manager Portal</p>
+                                    <p class="text-xs text-slate-400">Analytics: Reports, Insights</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-24">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="manager-progress" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-500" id="manager-progress-text">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Portal Sections -->
+            <section id="student-portal" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">Student Portal (LMS)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Course Management -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Course Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Course Catalog</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Course Details Page</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Learning Interface</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Video Player Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Lesson Notes & Attachments</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Mark Lesson Complete</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assignments -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Assignments & Results</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assignment Listing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Upload System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Submission Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Results Dashboard</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Grade & Feedback View</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Certificate Generation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Forum & Community -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Forum & Community</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Thread Creation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Reply System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Like/Dislike System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Categories & Tags</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Search & Filtering</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Real-time Updates</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Billing & Payments -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Billing & Payments</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment History</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Installment Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Paystack Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Invoice Generation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Receipts</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Reminders</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Student Dashboard -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Student Dashboard</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Progress Overview</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Upcoming Classes</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Overdue Assignments</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Finance Summary</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Active Forum Updates</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notifications Widget</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings & Profile -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Settings & Profile</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Profile Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Account Settings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notification Preferences</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Privacy Settings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Data Export</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Two-Factor Auth</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Client Portal Section -->
+            <section id="client-portal" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">Client Portal (CRM)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Project Management -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Project Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Project Listing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Project Details</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Timeline Visualization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Milestone Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Team Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Budget Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Progress Updates</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Proposal System -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Proposal & Negotiation</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Proposal Listing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Proposal Details</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Approval Workflow</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Services & Timeline</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Valid Until Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Configuration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Proposal Templates</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Vault -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Document Vault</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Upload System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Drag & Drop Interface</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Progress Indicators</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Categorization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Search & Filtering</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Version Control</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Download Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Access Permissions</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Dashboard -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Client Dashboard</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Active Projects</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Approved Value Sum</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Unpaid Invoices</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Upcoming Meetings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Visual Timeline Widget</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notification Center</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meetings & Scheduling -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Meetings & Scheduling</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Creation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Client-Staff Assignment</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Calendar Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Status Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Video Conferencing Links</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Reminders</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Notes & Attachments</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Onboarding Wizard -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Onboarding Wizard</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Step-by-Step Setup</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Business Information</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Contact Details</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Industry Selection</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Service Requirements</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Budget Configuration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Timeline Setting</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Terms & Agreement</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Staff Portal Section -->
+            <section id="staff-portal" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">Staff Portal</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Staff Dashboard -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Staff Dashboard</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assigned Students Count</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Total Classes Managed</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assignments Awaiting Grading</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Upcoming Sessions</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Quick Stats Panel</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Recent Activity Feed</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Class Management -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Class & Attendance Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Class Listing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Student Enrollment View</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Attendance Marking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Bulk Attendance Operations</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Attendance Reports</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Schedule Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Class Resources Overview</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grading Center -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Grading & Assessment Center</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assignment Inbox</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assignment Details View</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Download & Review</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Score Input System (0-100)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Qualitative Feedback Input</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Auto Grade Calculation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Grade History Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Bulk Grading Operations</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resource Manager -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Resource Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Upload Interface</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Multiple File Types Support</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Organization by Course/Module</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Version Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Preview System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Storage Usage Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Resource Sharing Controls</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Staff Meetings -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Staff Meetings & Collaboration</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Scheduling</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Client Meeting Coordination</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Internal Staff Meetings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Notes & Minutes</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Action Item Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Sharing & Collaboration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Video Conferencing Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HR & Performance -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">HR & Performance Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Staff Profile Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Performance Reviews</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Goal Setting & Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Training & Development Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Leave & Attendance Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Compensation & Benefits</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Exit Interview System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Portal Section -->
+            <section id="admin-portal" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">Admin & Manager Portal</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- User Administration -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">User Administration</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Global User Directory</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Role Management & Editing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Status Toggle (ACTIVE/SUSPENDED)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Bulk User Operations</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Session Logs & Security Audit</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Permission & Access Controls</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">User Import/Export Functionality</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Course Builder -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Course Builder & Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Visual Course Creation Interface</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Module/Lesson Structuring Tools</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Pricing Configuration (Full/Installment)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Resource & Attachment Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Prerequisites & Requirements Setting</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Assessment & Quiz Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Certification Configuration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project Management (Admin) -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Admin Project Oversight</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Project Creation from Proposals</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Staff Assignment as Supervisors/Team</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Budget Allocation & Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between>
+                                <span class="text-sm text-slate-500">Real-time Milestone Completion Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Project Status & Workflow Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Resource Allocation & Utilization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Project Reporting & Analytics</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Finance Ledger -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Finance Ledger & Accounting</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Income Recording & Categorization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Expense Tracking & Categorization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Monthly Revenue vs Expenses Charts</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Transaction Listing with Search/Filter</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Manual Entry Overrides & Corrections</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Financial Reporting & Statements</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Tax Calculation & Compliance Tools</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics & Reports -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Analytics & Reporting</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Student Enrollment Trends & Analytics</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Course Success Ratios & Completion Rates</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Complaint Resolution Time Analysis</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Staff Performance Metrics & KPIs</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Revenue Forecasting & Predictive Analytics</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Custom Report Builder & Export</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Dashboard Widget Customization</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Settings -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">System Settings & Configuration</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">General System Configuration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Email & Notification Settings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Gateway Configuration (Paystack)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Security & Access Control Policies</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Backup & Disaster Recovery Settings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">System Maintenance & Update Tools</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role & Permission Management -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Role & Permission Management</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Role Creation & Modification</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Permission Granularity Controls</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Role-Based Access Control (RBAC) System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Permission Inheritance & Override System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Audit Trail for Permission Changes</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Bulk Role Assignment Tools</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shared Modules Section -->
+            <section id="shared-modules" class="mb-12">
+                <h2 class="text-xl font-display font-bold mb-6 text-slate-900">Shared Modules & Utilities</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Notification System -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Notification System</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Real-time Notification Bell</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notification Types (Assignment, Grade, Payment, etc.)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Read/Unread Status Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Archiving & Deletion Functionality</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notification Preferences & Settings</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Push Notification Integration (Simulated)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Bulk Notification Operations</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Support & Complaints -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Support & Complaints System</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Support Ticket Creation & Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Staff Assignment & Resolution Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Ticket Prioritization & SLA Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Canned Responses & Knowledge Base</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Customer Satisfaction Tracking</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Escalation Workflow Management</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Support Analytics & Reporting</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meeting Scheduling (Shared) -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Meeting Scheduling System</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Cross-Portal Meeting Creation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Resource & Room Booking Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Recurring Meeting Support</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Reminders & Notifications</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Meeting Recording & Storage Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Calendar Sync & Integration (Google/Outlook)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Processing -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Payment Processing System</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Paystack Integration (Webhook Handling)</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Transaction Verification & Logging</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Idempotency Protection Mechanisms</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Refund & Dispute Handling System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Receipt Generation & Distribution</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Payment Analytics & Reporting</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Management & Storage -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">File Management & Storage</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Secure File Upload & Validation</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Type Validation & Security Scanning</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Storage Optimization & Compression</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Content Delivery Network (CDN) Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Access Logging & Auditing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Backup & Disaster Recovery for Files</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Communication & Messaging -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Communication & Messaging</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Internal Messaging System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Notification Center Integration</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Announcement & Broadcast System</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Message Threading & Conversation View</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">File Attachments & Media Sharing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Read Receipts & Delivery Confirmations</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Message Search & Archiving</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audit & Compliance -->
+                    <div class="glass-panel-elevated p-6">
+                        <h3 class="text-lg font-display font-semibold mb-4 text-slate-900">Audit & Compliance System</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Comprehensive Activity Logging</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">User Action Tracking & Auditing</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Data Access & Modification Logging</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Security Event Monitoring & Alerting</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Compliance Reporting & Audit Trails</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">GDPR & Data Protection Tools</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">Retention Policies & Data Archiving</span>
+                                <span class="status-badge status-planned">Planned</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Activity Log -->
+            <section class="mb-8">
+                <h2 class="text-xl font-display font-bold mb-4 text-slate-900">Recent Activity & Updates</h2>
+                <div class="glass-panel">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg border-l-4 border-cyan-500">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="zap" class="w-4 h-4 text-cyan-600"></i>
+                                <div>
+                                    <p class="font-medium text-slate-900">Dashboard Initialization</p>
+                                    <p class="text-xs text-slate-400">ERP Replication Dashboard created</p>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-500">Just now</div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="circle" class="w-4 h-4 text-slate-400"></i>
+                                <div>
+                                    <p class="font-medium text-slate-500">Project Planning Phase</p>
+                                    <p class="text-xs text-slate-400">Defined replication approach and phases</p>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-500">5 minutes ago</div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="git-branch" class="w-4 h-4 text-slate-400"></i>
+                                <div>
+                                    <p class="font-medium text-slate-500">Version Control Ready</p>
+                                    <p class="text-xs text-slate-400">Git repository initialized for tracking</p>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-500">10 minutes ago</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Mobile Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+
+    <script>
+        // Mobile Sidebar Toggle
+        document.getElementById('sidebar-toggle')?.addEventListener('click', function() {
+            document.getElementById('sidebar-overlay').classList.toggle('hidden');
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        });
+
+        document.getElementById('sidebar-overlay')?.addEventListener('click', function() {
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+        });
+
+        // Notifications Toggle
+        document.getElementById('notifications-toggle')?.addEventListener('click', function() {
+            const panel = document.getElementById('notifications-panel');
+            panel.classList.toggle('hidden');
+        });
+
+        // Close notifications panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('notifications-panel');
+            const toggle = document.getElementById('notifications-toggle');
+            if (panel && !panel.contains(e.target) && !toggle.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        });
+
+        // Initialize progress values (these would be updated dynamically in a real implementation)
+        function updateProgress() {
+            // Sample data - in reality this would come from a backend or storage
+            const progressData = {
+                overall: 5,
+                student: 12,
+                client: 8,
+                staff: 15,
+                admin: 10,
+                manager: 3
+            };
+
+            // Update overall progress
+            document.getElementById('overall-progress').textContent = progressData.overall + '%';
+            document.getElementById('progress-circle').style.strokeDashoffset = `${100 - progressData.overall}`;
+
+            // Update portal progress
+            document.getElementById('student-progress').style.width = progressData.student + '%';
+            document.getElementById('student-progress-text').textContent = progressData.student + '%';
+
+            document.getElementById('client-progress').style.width = progressData.client + '%';
+            document.getElementById('client-progress-text').textContent = progressData.client + '%';
+
+            document.getElementById('staff-progress').style.width = progressData.staff + '%';
+            document.getElementById('staff-progress-text').textContent = progressData.staff + '%';
+
+            document.getElementById('admin-progress').style.width = progressData.admin + '%';
+            document.getElementById('admin-progress-text').textContent = progressData.admin + '%';
+
+            document.getElementById('manager-progress').style.width = progressData.manager + '%';
+            document.getElementById('manager-progress-text').textContent = progressData.manager + '%';
+
+            // Update completed portals count (simplified)
+            const completedPortals = Object.values(progressData).filter(p => p > 0).length;
+            document.getElementById('portals-completed').textContent = `${completedPortals}/5`;
+            document.getElementById('features-implemented').textContent = `${completedPortals * 5}/24`; // Rough estimate
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', updateProgress);
+
+        // Add some interactivity to status badges for demo
+        document.querySelectorAll('.status-badge').forEach(badge => {
+            badge.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.05)';
+                this.style.transition = 'transform 0.2s ease';
+            });
+
+            badge.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
