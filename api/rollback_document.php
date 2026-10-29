@@ -32,6 +32,22 @@ try {
         exit();
     }
     
+    // Clients may only roll back their own documents; students have no vault access
+    if ($user['role'] === 'CLIENT') {
+        $stmt = $conn->prepare("SELECT 1 FROM clients WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("ss", $live_doc['client_id'], $user['id']);
+        $stmt->execute();
+        $owns = (bool) $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$owns) {
+            echo json_encode(["success" => false, "error" => "Unauthorized access."]);
+            exit();
+        }
+    } elseif (!in_array($user['role'], ['ADMIN', 'MANAGER', 'STAFF'], true)) {
+        echo json_encode(["success" => false, "error" => "Unauthorized access."]);
+        exit();
+    }
+
     // 2. Fetch the target rollback version
     $stmt = $conn->prepare("SELECT * FROM document_versions WHERE id = ? AND document_id = ?");
     $stmt->bind_param("ss", $version_id, $document_id);

@@ -22,7 +22,7 @@ $approved_val = floatval(fetch_all($conn, "SELECT COALESCE(SUM(amount),0) AS t F
 $unpaid = fetch_all($conn, "SELECT COALESCE(SUM(amount),0) AS t, COUNT(*) AS n FROM payments WHERE client_id = ? AND status IN ('PENDING','OVERDUE')", "s", $client_id)[0];
 $meetings = fetch_all($conn, "SELECT m.*, u.first_name AS staff_first FROM meetings m
                               LEFT JOIN staff s ON m.staff_id = s.id LEFT JOIN users_staff u ON s.user_id = u.id
-                              WHERE m.client_id = ? AND m.status = 'SCHEDULED' AND m.meeting_date >= NOW()
+                              WHERE m.client_id = ? AND m.status IN ('SCHEDULED','RESCHEDULED') AND m.meeting_date >= NOW()
                               ORDER BY m.meeting_date ASC LIMIT 3", "s", $client_id);
 $milestones = fetch_all($conn, "SELECT m.*, p.title AS project_title FROM project_milestones m JOIN projects p ON m.project_id = p.id
                                 WHERE p.client_id = ? ORDER BY m.completed ASC, m.due_date ASC LIMIT 4", "s", $client_id);
@@ -183,7 +183,7 @@ include __DIR__ . '/../includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <a href="meetings.php" class="block text-center mt-4 text-xs font-bold text-indigo-600">Book a consultation</a>
+            <a href="meetings.php" class="block text-center mt-4 text-xs font-bold text-indigo-600">Request a meeting</a>
         </div>
 
         <div class="glass-card p-6 rounded-2xl">

@@ -7,13 +7,25 @@ $page_title = "Client Document Vault";
 $errors = [];
 $success_msg = "";
 
+// Documents always belong to one of the client's projects
+$stmt = $conn->prepare("SELECT id, project_id, title FROM projects WHERE client_id = ? ORDER BY created_at DESC");
+$stmt->bind_param("s", $client_id);
+$stmt->execute();
+$my_projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+$project_names = array_column($my_projects, 'title', 'id');
+
 // Handle file uploads
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_doc') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         die("CSRF validation failed.");
     }
 
-    if (isset($_FILES['vault_file']) && $_FILES['vault_file']['error'] === UPLOAD_ERR_OK) {
+    $upload_project = $_POST['project_id'] ?? '';
+
+    if (!isset($project_names[$upload_project])) {
+        $errors[] = "Please choose which project this document belongs to.";
+    } elseif (isset($_FILES['vault_file']) && $_FILES['vault_file']['error'] === UPLOAD_ERR_OK) {
         $file_name = $_FILES['vault_file']['name'];
         $file_tmp = $_FILES['vault_file']['tmp_name'];
         $file_size = $_FILES['vault_file']['size'];
@@ -50,8 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $change_summary = sanitize($_POST['change_summary'] ?? 'Uploaded new document version');
 
                     // Check if file with same name and client_id already exists
-                    $stmt = $conn->prepare("SELECT * FROM documents WHERE file_name = ? AND client_id = ?");
-                    $stmt->bind_param("ss", $file_name, $client_id);
+                    $stmt = $conn->prepare("SELECT * FROM documents WHERE file_name = ? AND client_id = ? AND project_id = ?");
+                    $stmt->bind_param("sss", $file_name, $client_id, $upload_project);
                     $stmt->execute();
                     $existing_doc = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
@@ -80,9 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     } else {
                         // Standard insert
                         $doc_id = generate_uuid();
-                        $stmt = $conn->prepare("INSERT INTO documents (id, file_name, file_path, file_size, mime_type, client_id, uploaded_by, current_version) 
-                                                VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-                        $stmt->bind_param("sssssss", $doc_id, $file_name, $db_file_path, $formatted_size, $mime_type, $client_id, $uploaded_by);
+                        $stmt = $conn->prepare("INSERT INTO documents (id, file_name, file_path, file_size, mime_type, client_id, project_id, uploaded_by, current_version) 
+                                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                        $stmt->bind_param("ssssssss", $doc_id, $file_name, $db_file_path, $formatted_size, $mime_type, $client_id, $upload_project, $uploaded_by);
                         $stmt->execute();
                         $stmt->close();
 
@@ -90,7 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     $conn->commit();
-                    log_activity("Uploaded document to vault", ["file" => $file_name]);
+                    log_activity("Uploaded document to vault", ["file" => $file_name, "project_id" => $upload_project]);
+                    notify_admins("Client uploaded a document", ($client['company_name'] ?: 'A client') . " uploaded '" . $file_name . "' to project " . $project_names[$upload_project] . ".", "/admin/project_control.php?project_id=" . $upload_project);
                 } catch (Exception $e) {
                     $conn->rollback();
                     $errors[] = "Database operation failed: " . $e->getMessage();
@@ -107,8 +120,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Fetch documents on vault
 $documents = [];
 try {
-    $stmt = $conn->prepare("SELECT * FROM documents WHERE client_id = ? ORDER BY uploaded_at DESC");
-    $stmt->bind_param("s", $client_id);
+    $filter = $_GET['project'] ?? '';
+    if ($filter !== '' && !isset($project_names[$filter])) {
+        $filter = '';
+    }
+    $stmt = $conn->prepare("SELECT d.*, p.title AS project_title FROM documents d LEFT JOIN projects p ON p.id = d.project_id
+                            WHERE d.client_id = ? AND (? = '' OR d.project_id = ?) ORDER BY d.uploaded_at DESC");
+    $stmt->bind_param("sss", $client_id, $filter, $filter);
     $stmt->execute();
     $res = $stmt->get_result();
     while ($row = $res->fetch_assoc()) {
@@ -152,9 +170,24 @@ include __DIR__ . '/../includes/header.php';
                 <span>Upload New Documents</span>
             </h4>
 
-            <form action="vault.php" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <?php if (empty($my_projects)): ?>
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 leading-relaxed">
+                    Documents are attached to a project, and you don't have one yet. Once your proposal is accepted, the deposit is paid and we kick off your project, you can share files here.
+                </div>
+            <?php else: ?>
+            <form id="upload-form" action="vault.php" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="action" value="upload_doc">
+
+                <div>
+                    <label for="upload-project" class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Project</label>
+                    <select name="project_id" id="upload-project" required
+                        class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs">
+                        <?php foreach ($my_projects as $mp): ?>
+                            <option value="<?php echo $mp['id']; ?>" <?php echo (($filter ?? '') === $mp['id']) ? 'selected' : ''; ?>><?php echo sanitize($mp['title'] . ' (' . $mp['project_id'] . ')'); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
                 <!-- Drag-drop layout area -->
                 <div id="drop-zone"
@@ -198,6 +231,7 @@ include __DIR__ . '/../includes/header.php';
                     Upload to Vault
                 </button>
             </form>
+            <?php endif; ?>
         </div>
 
     </div>
@@ -212,6 +246,18 @@ include __DIR__ . '/../includes/header.php';
                 <i data-lucide="folder-open" class="w-4 h-4 text-indigo-500"></i>
                 <span>Document Vault Files</span>
             </h4>
+
+            <?php if (count($my_projects) > 1): ?>
+                <form method="GET" action="vault.php" class="mb-4 flex items-center gap-2">
+                    <label class="text-[10px] font-semibold text-slate-400 uppercase">Project</label>
+                    <select name="project" onchange="this.form.submit()" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                        <option value="">All projects</option>
+                        <?php foreach ($my_projects as $mp): ?>
+                            <option value="<?php echo $mp['id']; ?>" <?php echo ($filter ?? '') === $mp['id'] ? 'selected' : ''; ?>><?php echo sanitize($mp['title']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+            <?php endif; ?>
 
             <?php if (empty($documents)): ?>
                 <div class="text-center py-12 text-slate-500 ">
@@ -233,6 +279,7 @@ include __DIR__ . '/../includes/header.php';
                                                 <?php echo sanitize($doc['file_name']); ?></h5>
                                             <span
                                                 class="bg-indigo-500/10 text-indigo-650  text-[8px] font-bold px-1.5 py-0.5 rounded">v<?php echo $doc['current_version']; ?></span>
+                                            <span class="bg-slate-100 text-slate-600 text-[8px] font-bold px-1.5 py-0.5 rounded truncate max-w-[10rem]"><?php echo sanitize($doc['project_title'] ?: 'No project'); ?></span>
                                         </div>
                                         <div class="flex items-center space-x-2 text-[9px] text-slate-400 mt-0.5">
                                             <span>Size: <?php echo sanitize($doc['file_size']); ?></span>
@@ -332,6 +379,7 @@ include __DIR__ . '/../includes/header.php';
 <!-- Upload Progress Animation scripts -->
 <script>
     const fileInput = document.getElementById('file-input');
+    const uploadForm = document.getElementById('upload-form');
     const dropZone = document.getElementById('drop-zone');
     const fileInfo = document.getElementById('file-selected-info');
     const uploadBtn = document.getElementById('upload-submit-btn');
@@ -365,7 +413,7 @@ include __DIR__ . '/../includes/header.php';
     }
 
     // Trigger simulated progress bar on form submit
-    const form = document.querySelector('form');
+    const form = document.getElementById('upload-form');
     if (form) {
         form.addEventListener('submit', (e) => {
             if (fileInput.files && fileInput.files[0]) {

@@ -94,6 +94,10 @@ include __DIR__ . '/../includes/header.php';
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
             <span>Back to Projects list</span>
         </a>
+        <a href="vault.php?project=<?php echo $active_project['id']; ?>" class="text-xs text-indigo-600 font-semibold flex items-center space-x-1.5">
+            <i data-lucide="folder-lock" class="w-4 h-4"></i>
+            <span>Project documents &amp; uploads</span>
+        </a>
         
         <!-- Project Title Banner Header -->
         <div class="bg-white  border border-slate-200  p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

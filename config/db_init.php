@@ -664,7 +664,7 @@ function init_database($conn)
           duration INT NULL,
           location VARCHAR(255) NULL,
           meeting_url VARCHAR(255) NULL,
-          status ENUM('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'RESCHEDULED') DEFAULT 'SCHEDULED',
+          status ENUM('REQUESTED', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'RESCHEDULED') DEFAULT 'SCHEDULED',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -733,6 +733,7 @@ function init_database($conn)
   migrate_enrollment_batches($conn);
   migrate_proposal_response_date($conn);
   migrate_project_proposal_link($conn);
+  migrate_meeting_requests($conn);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
   $check = $conn->query("SELECT COUNT(*) as count FROM users_admin WHERE id = 'u-admin-0001'");
@@ -819,6 +820,18 @@ function migrate_project_proposal_link($conn)
     // Projects created before this column existed: link them to the proposal with the same client and title.
     $conn->query("UPDATE projects pr JOIN proposals p ON p.client_id = pr.client_id AND p.title = pr.title
                   SET pr.proposal_id = p.id WHERE pr.proposal_id IS NULL");
+  }
+}
+
+/**
+ * Additive migration: clients now request meetings (status REQUESTED) that an admin confirms or reschedules.
+ */
+function migrate_meeting_requests($conn)
+{
+  $col = $conn->query("SHOW COLUMNS FROM meetings LIKE 'status'");
+  $row = $col ? $col->fetch_assoc() : null;
+  if ($row && strpos($row['Type'], "'REQUESTED'") === false) {
+    $conn->query("ALTER TABLE meetings MODIFY COLUMN status ENUM('REQUESTED','SCHEDULED','IN_PROGRESS','COMPLETED','CANCELLED','RESCHEDULED') DEFAULT 'SCHEDULED'");
   }
 }
 

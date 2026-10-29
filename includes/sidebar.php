@@ -68,6 +68,10 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="file-text" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Client Proposals</span>
                 </a>
+                <a href="<?php echo BASE_URL; ?>/admin/meetings.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('meetings.php', $current_page); ?>">
+                    <i data-lucide="video" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Client Meetings</span>
+                </a>
                 <a href="<?php echo BASE_URL; ?>/admin/project_control.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('project_control.php', $current_page); ?>">
                     <i data-lucide="kanban-square" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Project Workspace</span>
