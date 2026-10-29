@@ -678,7 +678,7 @@ include __DIR__ . '/../includes/header.php';
                                 <input type="hidden" name="action" value="issue_invoice">
                                 <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
                                 <select name="type" class="px-2 py-1.5 bg-white border border-slate-250 rounded-lg text-xs"><option value="MILESTONE">Milestone</option><option value="FINAL">Final</option></select>
-                                <input type="number" name="amount" step="0.01" min="1" required placeholder="Amount (USD)" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
+                                <input type="number" name="amount" step="0.01" min="1" required placeholder="Amount (₦)" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
                                 <input type="text" name="label" required placeholder="e.g. Milestone 2 - Core build" class="col-span-2 px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
                                 <button class="col-span-2 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Issue invoice</button>
                             </form>

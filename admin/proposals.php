@@ -79,7 +79,9 @@ while ($row = $res->fetch_assoc()) {
 }
 
 $proposals = [];
-$res = $conn->query("SELECT p.*, cl.company_name, cl.contact_person FROM proposals p JOIN clients cl ON cl.id = p.client_id
+$res = $conn->query("SELECT p.*, cl.company_name, cl.contact_person,
+                            (SELECT q.responses FROM questionnaires q WHERE q.client_id = p.client_id AND q.title = p.title ORDER BY q.created_at DESC LIMIT 1) AS brief
+                     FROM proposals p JOIN clients cl ON cl.id = p.client_id
                      ORDER BY FIELD(p.status,'DRAFT','PENDING','APPROVED','REJECTED','EXPIRED'), p.created_at DESC");
 while ($row = $res->fetch_assoc()) {
     $proposals[] = $row;
@@ -115,10 +117,21 @@ include __DIR__ . '/../includes/header.php';
                     <span class="px-2.5 py-1 rounded text-[10px] font-bold uppercase <?php echo $p['status'] === 'DRAFT' ? 'bg-indigo-500/10 text-indigo-600' : ($p['status'] === 'PENDING' ? 'bg-amber-500/10 text-amber-600' : ($p['status'] === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-500')); ?>">
                         <?php echo $p['status'] === 'DRAFT' ? 'Needs quote' : ($p['status'] === 'PENDING' ? 'Sent to client' : sanitize($p['status'])); ?>
                     </span>
-                    <p class="text-sm font-bold text-slate-900 mt-1"><?php echo format_currency($p['amount']); ?></p>
+                    <p class="text-sm font-bold text-slate-900 mt-1"><?php echo $p['amount'] > 0 ? format_currency($p['amount']) : 'Price not set'; ?></p>
                 </div>
             </div>
 
+
+            <?php
+            $b = $p['brief'] ? (json_decode($p['brief'], true)['inputs'] ?? []) : [];
+            if ($p['status'] === 'DRAFT' && $b): ?>
+                <div class="mt-4 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs text-slate-600 space-y-1.5">
+                    <p class="font-bold text-slate-800 text-[10px] uppercase tracking-wider">Client brief</p>
+                    <p><b>Timeline wanted:</b> <?php echo sanitize($p['timeline']); ?><?php echo !empty($b['budget_note']) ? ' &bull; <b>Budget in mind:</b> ' . sanitize($b['budget_note']) : ''; ?></p>
+                    <?php if (!empty($b['current_site'])): ?><p><b>Current website:</b> <?php echo sanitize($b['current_site']); ?></p><?php endif; ?>
+                    <?php if (!empty($b['references'])): ?><p><b>Likes:</b> <?php echo nl2br(sanitize($b['references'])); ?></p><?php endif; ?>
+                </div>
+            <?php endif; ?>
             <?php if ($editable): ?>
                 <form method="POST" action="proposals.php" class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
@@ -129,8 +142,8 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="grid grid-cols-3 gap-2">
                         <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Price (USD)</label>
-                            <input type="number" name="amount" step="0.01" min="1" required value="<?php echo $p['amount']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Price (₦)</label>
+                            <input type="number" name="amount" step="0.01" min="1" required placeholder="Set price" value="<?php echo $p['amount'] > 0 ? $p['amount'] : ''; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
                         </div>
                         <div>
                             <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Timeline</label>
@@ -142,7 +155,7 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <div>
-                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Client brief / scope</label>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Scope shown to client (rewrite as needed)</label>
                         <textarea name="description" rows="4" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"><?php echo sanitize($p['description']); ?></textarea>
                     </div>
                     <div>

@@ -175,7 +175,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="text-center bg-blue-500/5 p-4 rounded-xl">
                 <span class="text-xs text-slate-400 block uppercase tracking-wider font-semibold">Payment Amount</span>
                 <div class="mt-2 relative w-1/2 mx-auto">
-                    <span class="absolute left-3 top-2 text-slate-500 font-bold">$</span>
+                    <span class="absolute left-3 top-2 text-slate-500 font-bold">₦</span>
                     <input type="number" id="checkout-amount-input" step="0.01" class="w-full pl-7 pr-3 py-1.5 text-center bg-white border border-slate-200 rounded-lg font-bold text-lg text-slate-950 outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <p id="checkout-course-display" class="text-xs text-slate-400 mt-2 truncate"></p>

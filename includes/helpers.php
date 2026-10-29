@@ -280,7 +280,7 @@ function find_user_table($conn, $user_id)
  * @param string $currency
  * @return string
  */
-function format_currency($amount, $currency = 'USD')
+function format_currency($amount, $currency = 'NGN')
 {
     $symbol = '$';
     if ($currency === 'NGN') {

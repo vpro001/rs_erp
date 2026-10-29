@@ -3,12 +3,23 @@
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/../config/db_connection.php';
 
+// Each portal has its own login page; send logged-out visitors to the one for the area they asked for.
+function portal_login_url($uri)
+{
+    foreach (['admin', 'staff', 'client'] as $portal) {
+        if (strpos($uri, "/$portal/") !== false) {
+            return BASE_URL . "/$portal/login.php";
+        }
+    }
+    return BASE_URL . "/login.php";
+}
+
 // Check if user is logged in
 if (!isset($_SESSION['user'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $_SESSION['redirect_to'] = $_SERVER['REQUEST_URI'];
     }
-    header("Location: " . BASE_URL . "/login.php");
+    header("Location: " . portal_login_url($_SERVER['REQUEST_URI']));
     exit();
 }
 
@@ -39,7 +50,7 @@ if (isset($_SESSION['last_active']) && (time() - $_SESSION['last_active'] > $tim
     session_destroy();
     session_start();
     set_flash_message('warning', 'Your session has expired. Please log in again.');
-    header("Location: " . BASE_URL . "/login.php");
+    header("Location: " . portal_login_url($_SERVER['REQUEST_URI']));
     exit();
 }
 

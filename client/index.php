@@ -36,13 +36,13 @@ if ($unpaid['n'] > 0) {
 } elseif (!empty($proposal_counts['PENDING'])) {
     $next = ['file-text', 'bg-amber-500', "Your quote is ready", "Review the proposal our team prepared and accept it to get started.", 'Review proposal', 'proposals.php'];
 } elseif (!empty($proposal_counts['DRAFT'])) {
-    $next = ['hourglass', 'bg-slate-500', "We're preparing your quote", "Our team is reviewing your request. You'll be notified when your proposal is ready.", 'View request', 'proposals.php'];
+    $next = ['hourglass', 'bg-slate-500', "We're assessing your request", "Our team is assessing your request and will set a price. You'll be notified when your proposal is ready.", 'View request', 'proposals.php'];
 } elseif ($active_projects > 0) {
     $next = ['kanban-square', 'bg-indigo-600', "Your project is underway", "Follow milestones and updates from our team.", 'Track project', 'projects.php'];
 } elseif (!empty($proposal_counts['APPROVED'])) {
     $next = ['calendar-clock', 'bg-emerald-600', "Deposit received - we're scheduling your project", "A supervisor will be assigned and your project workspace will appear here.", 'View proposals', 'proposals.php'];
 } else {
-    $next = ['rocket', 'bg-indigo-600', "Need software built for your business?", "Tell us what you need - web apps, mobile apps, internal systems - and get a quote from our team.", 'Request a project', 'onboarding.php'];
+    $next = ['rocket', 'bg-indigo-600', "Need software built for your business?", "Websites, redesigns, web apps, mobile apps, internal systems - tell us what you need and get a quote from our team.", 'Request a project', 'onboarding.php'];
 }
 
 $steps = [

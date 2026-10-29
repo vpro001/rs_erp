@@ -4,6 +4,12 @@ require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/config/db_connection.php';
 
 $user = current_user();
+$login_path = match ($user['role'] ?? '') {
+    'ADMIN', 'MANAGER' => '/admin/login.php',
+    'STAFF' => '/staff/login.php',
+    'CLIENT' => '/client/login.php',
+    default => '/login.php',
+};
 if ($user) {
     try {
         log_activity("User Logged Out", ["email" => $user['email']]);
@@ -28,5 +34,5 @@ session_destroy();
 // Restart session to set flash message
 session_start();
 set_flash_message('success', 'You have successfully signed out.');
-header("Location: " . BASE_URL . "/login.php");
+header("Location: " . BASE_URL . $login_path);
 exit();

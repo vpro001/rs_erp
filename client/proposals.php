@@ -103,7 +103,7 @@ while ($row = $res->fetch_assoc()) {
 $stmt->close();
 
 $status_style = [
-    'DRAFT' => ['In review', 'bg-slate-100 text-slate-600'],
+    'DRAFT' => ['Being assessed', 'bg-slate-100 text-slate-600'],
     'PENDING' => ['Awaiting your answer', 'bg-amber-500/10 text-amber-600'],
     'APPROVED' => ['Accepted', 'bg-emerald-500/10 text-emerald-600'],
     'REJECTED' => ['Declined', 'bg-red-500/10 text-red-600'],
@@ -183,8 +183,8 @@ include __DIR__ . '/../includes/header.php';
                 <div class="border-t border-slate-100 mt-5 pt-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[9px] text-slate-400 uppercase font-bold block"><?php echo $prop['status'] === 'DRAFT' ? 'Estimate (not final)' : 'Price'; ?></span>
-                            <span class="text-base font-bold text-slate-900"><?php echo format_currency($prop['amount']); ?></span>
+                            <span class="text-[9px] text-slate-400 uppercase font-bold block">Price</span>
+                            <span class="text-base font-bold text-slate-900"><?php echo $prop['status'] === 'DRAFT' ? 'To be quoted' : format_currency($prop['amount']); ?></span>
                         </div>
 
                         <?php if ($prop['status'] === 'PENDING'): ?>
@@ -213,7 +213,7 @@ include __DIR__ . '/../includes/header.php';
                                 <span class="text-[10px] text-emerald-600 font-semibold">Deposit paid - project being scheduled</span>
                             <?php endif; ?>
                         <?php elseif ($prop['status'] === 'DRAFT'): ?>
-                            <span class="text-[10px] text-slate-400">Our team is preparing your quote</span>
+                            <span class="text-[10px] text-slate-400">Our team is assessing your request</span>
                         <?php else: ?>
                             <a href="onboarding.php" class="text-[10px] font-bold text-indigo-600">Request a new quote</a>
                         <?php endif; ?>

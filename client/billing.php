@@ -125,7 +125,7 @@ include __DIR__ . '/../includes/header.php';
     let activePaymentId = null;
     function openCheckout(id, amount, desc) {
         activePaymentId = id;
-        document.getElementById('checkout-amount').textContent = '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2 });
+        document.getElementById('checkout-amount').textContent = '₦' + amount.toLocaleString('en-US', { minimumFractionDigits: 2 });
         document.getElementById('checkout-desc').textContent = desc;
         document.getElementById('checkout-modal').classList.remove('hidden');
     }
