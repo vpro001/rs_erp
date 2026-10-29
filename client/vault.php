@@ -221,13 +221,13 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="w-full bg-slate-100  h-1.5 rounded-full overflow-hidden">
                         <div id="progress-bar-fill"
-                            class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300"
+                            class="bg-blue-500 h-full rounded-full transition-all duration-300"
                             style="width: 0%"></div>
                     </div>
                 </div>
 
                 <button type="submit" id="upload-submit-btn"
-                    class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-blue-500/10">
+                    class="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-blue-500/10">
                     Upload to Vault
                 </button>
             </form>

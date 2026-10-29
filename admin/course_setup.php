@@ -107,6 +107,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// 4. Handle Update / Delete (courses, modules, lessons)
+$crud_actions = ['update_course', 'delete_course', 'update_module', 'delete_module', 'update_lesson', 'delete_lesson'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], $crud_actions, true)) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("CSRF validation failed.");
+    }
+
+    $act = $_POST['action'];
+    $target_id = sanitize($_POST['id'] ?? '');
+
+    try {
+        if ($target_id === '') {
+            throw new Exception("Missing record identifier.");
+        }
+
+        if ($act === 'update_course') {
+            $title = sanitize($_POST['title'] ?? '');
+            $description = sanitize($_POST['description'] ?? '');
+            $price = floatval($_POST['price'] ?? 0);
+            $duration = sanitize($_POST['duration'] ?? '');
+            $level = in_array($_POST['level'] ?? '', ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'], true) ? $_POST['level'] : 'BEGINNER';
+            $mode = in_array($_POST['mode'] ?? '', ['ONLINE', 'OFFLINE', 'HYBRID'], true) ? $_POST['mode'] : 'ONLINE';
+            $status = in_array($_POST['status'] ?? '', ['ACTIVE', 'INACTIVE', 'DRAFT', 'ARCHIVED'], true) ? $_POST['status'] : 'ACTIVE';
+            $instructor_id = sanitize($_POST['instructor_id'] ?? '');
+            $category_id = sanitize($_POST['category_id'] ?? '');
+            $allow_installment = isset($_POST['allow_installment']) ? 1 : 0;
+            $installment_count = empty($_POST['installment_count']) ? null : intval($_POST['installment_count']);
+            $installment_amount = empty($_POST['installment_amount']) ? null : floatval($_POST['installment_amount']);
+
+            if ($title === '' || $duration === '' || $instructor_id === '' || $category_id === '') {
+                throw new Exception("Please fill in all required fields.");
+            }
+            $stmt = $conn->prepare("UPDATE courses SET title=?, description=?, price=?, duration=?, level=?, mode=?, status=?, allow_installment=?, installment_count=?, installment_amount=?, instructor_id=?, category_id=? WHERE id=?");
+            $stmt->bind_param("ssdssssiidsss", $title, $description, $price, $duration, $level, $mode, $status, $allow_installment, $installment_count, $installment_amount, $instructor_id, $category_id, $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Updated LMS Course", ["course_id" => $target_id, "title" => $title]);
+            $success_msg = "Course updated successfully!";
+
+        } elseif ($act === 'delete_course') {
+            // Enrollments cascade on delete, so refuse when students are enrolled.
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM enrollments WHERE course_id = ?");
+            $stmt->bind_param("s", $target_id);
+            $stmt->execute();
+            $stmt->bind_result($enrolled);
+            $stmt->fetch();
+            $stmt->close();
+            if ($enrolled > 0) {
+                throw new Exception("Cannot delete: $enrolled student enrollment(s) exist. Set the course status to ARCHIVED instead.");
+            }
+            $stmt = $conn->prepare("DELETE FROM courses WHERE id = ?");
+            $stmt->bind_param("s", $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Deleted LMS Course", ["course_id" => $target_id]);
+            $success_msg = "Course deleted successfully.";
+            if (($_GET['course_id'] ?? '') === $target_id) {
+                unset($_GET['course_id']);
+            }
+
+        } elseif ($act === 'update_module') {
+            $mod_title = sanitize($_POST['title'] ?? '');
+            $mod_desc = sanitize($_POST['description'] ?? '');
+            $order_num = intval($_POST['order_num'] ?? 1);
+            if ($mod_title === '') {
+                throw new Exception("Module title is required.");
+            }
+            $stmt = $conn->prepare("UPDATE modules SET title=?, description=?, order_num=? WHERE id=?");
+            $stmt->bind_param("ssis", $mod_title, $mod_desc, $order_num, $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Updated Course Syllabus Module", ["module" => $mod_title]);
+            $success_msg = "Module updated successfully!";
+
+        } elseif ($act === 'delete_module') {
+            $stmt = $conn->prepare("DELETE FROM modules WHERE id = ?");
+            $stmt->bind_param("s", $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Deleted Course Syllabus Module", ["module_id" => $target_id]);
+            $success_msg = "Module and its lessons deleted.";
+
+        } elseif ($act === 'update_lesson') {
+            $les_title = sanitize($_POST['title'] ?? '');
+            $les_content = sanitize($_POST['content'] ?? '');
+            $video_url = sanitize($_POST['video_url'] ?? '');
+            $les_duration = sanitize($_POST['duration'] ?? '');
+            $order_num = intval($_POST['order_num'] ?? 1);
+            if ($les_title === '') {
+                throw new Exception("Lesson title is required.");
+            }
+            $stmt = $conn->prepare("UPDATE lessons SET title=?, content=?, video_url=?, duration=?, order_num=? WHERE id=?");
+            $stmt->bind_param("ssssis", $les_title, $les_content, $video_url, $les_duration, $order_num, $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Updated Syllabus Module Lesson", ["lesson" => $les_title]);
+            $success_msg = "Lesson updated successfully!";
+
+        } elseif ($act === 'delete_lesson') {
+            $stmt = $conn->prepare("DELETE FROM lessons WHERE id = ?");
+            $stmt->bind_param("s", $target_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Deleted Syllabus Module Lesson", ["lesson_id" => $target_id]);
+            $success_msg = "Lesson deleted.";
+        }
+    } catch (Exception $e) {
+        $errors[] = $e->getMessage();
+    }
+}
+
 // Fetch all staff for instructors dropdown
 $instructors = [];
 try {
@@ -326,10 +437,72 @@ include __DIR__ . '/../includes/header.php';
                                 <p class="text-[9px] text-slate-400 mt-1">Instructor: <?php echo sanitize($c['staff_first'] . ' ' . $c['staff_last']); ?> &bull; Category: <?php echo sanitize($c['category_name']); ?></p>
                             </div>
                             
-                            <a href="course_setup.php?course_id=<?php echo $c['id']; ?>" class="px-3.5 py-1.5 bg-indigo-650 hover:bg-indigo-500 text-white rounded font-bold text-[10px] transition-colors">
-                                Syllabus Builder
-                            </a>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono"><?php echo $c['status']; ?></span>
+                                <button type="button" class="text-[10px] font-bold text-blue-600 hover:underline" onclick="toggleForm('edit-course-<?php echo $c['id']; ?>')">Edit</button>
+                                <form method="POST" class="inline" onsubmit="return confirm('Delete this course permanently?');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                    <input type="hidden" name="action" value="delete_course">
+                                    <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                    <button type="submit" class="text-[10px] font-bold text-red-600 hover:underline">Delete</button>
+                                </form>
+                                <a href="course_setup.php?course_id=<?php echo $c['id']; ?>" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-[10px] transition-colors">
+                                    Syllabus Builder
+                                </a>
+                            </div>
                         </div>
+                        <form id="edit-course-<?php echo $c['id']; ?>" method="POST" class="hidden p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <input type="hidden" name="action" value="update_course">
+                            <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                            <input type="text" name="title" required value="<?php echo $c['title']; ?>" placeholder="Title" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                            <div class="grid grid-cols-3 gap-3">
+                                <input type="number" step="0.01" name="price" required value="<?php echo $c['price']; ?>" placeholder="Price" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                <input type="text" name="duration" required value="<?php echo sanitize($c['duration']); ?>" placeholder="Duration" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                <select name="status" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    <?php foreach (['ACTIVE','INACTIVE','DRAFT','ARCHIVED'] as $o): ?>
+                                        <option value="<?php echo $o; ?>" <?php echo $c['status'] === $o ? 'selected' : ''; ?>><?php echo $o; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <select name="level" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    <?php foreach (['BEGINNER','INTERMEDIATE','ADVANCED'] as $o): ?>
+                                        <option value="<?php echo $o; ?>" <?php echo $c['level'] === $o ? 'selected' : ''; ?>><?php echo $o; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <select name="mode" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    <?php foreach (['ONLINE','OFFLINE','HYBRID'] as $o): ?>
+                                        <option value="<?php echo $o; ?>" <?php echo $c['mode'] === $o ? 'selected' : ''; ?>><?php echo $o; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <select name="instructor_id" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    <?php foreach ($instructors as $ins): ?>
+                                        <option value="<?php echo $ins['id']; ?>" <?php echo $c['instructor_id'] === $ins['id'] ? 'selected' : ''; ?>><?php echo sanitize($ins['first_name'] . ' ' . $ins['last_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <select name="category_id" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    <?php foreach ($categories as $cat): ?>
+                                        <option value="<?php echo $cat['id']; ?>" <?php echo $c['category_id'] === $cat['id'] ? 'selected' : ''; ?>><?php echo sanitize($cat['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <label class="flex items-center space-x-2 text-xs text-slate-500">
+                                <input type="checkbox" name="allow_installment" <?php echo $c['allow_installment'] ? 'checked' : ''; ?>>
+                                <span>Allow installments</span>
+                            </label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="number" name="installment_count" value="<?php echo $c['installment_count']; ?>" placeholder="Installment count" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                <input type="number" step="0.01" name="installment_amount" value="<?php echo $c['installment_amount']; ?>" placeholder="Installment amount" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                            </div>
+                            <textarea name="description" rows="3" placeholder="Description" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"><?php echo $c['description']; ?></textarea>
+                            <div class="flex justify-end space-x-2">
+                                <button type="button" class="px-3 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold" onclick="toggleForm('edit-course-<?php echo $c['id']; ?>')">Cancel</button>
+                                <button type="submit" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-bold">Save Changes</button>
+                            </div>
+                        </form>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -357,8 +530,31 @@ include __DIR__ . '/../includes/header.php';
                                         <span class="text-xs font-bold text-slate-900 "><?php echo sanitize($m['title']); ?></span>
                                         <p class="text-[10px] text-slate-400 mt-0.5"><?php echo sanitize($m['description']); ?></p>
                                     </div>
-                                    <span class="text-[9px] bg-indigo-500/10 text-indigo-600  px-1.5 py-0.5 rounded font-mono">Order: <?php echo $m['order_num']; ?></span>
+                                    <div class="flex items-center space-x-3">
+                                        <span class="text-[9px] bg-indigo-500/10 text-indigo-600  px-1.5 py-0.5 rounded font-mono">Order: <?php echo $m['order_num']; ?></span>
+                                        <button type="button" class="text-[10px] font-bold text-blue-600 hover:underline" onclick="toggleForm('edit-module-<?php echo $m_id; ?>')">Edit</button>
+                                        <form method="POST" class="inline" onsubmit="return confirm('Delete this module and all its lessons?');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                    <input type="hidden" name="action" value="delete_module">
+                                    <input type="hidden" name="id" value="<?php echo $m_id; ?>">
+                                    <button type="submit" class="text-[10px] font-bold text-red-600 hover:underline">Delete</button>
+                                </form>
+                                    </div>
                                 </div>
+                                <form id="edit-module-<?php echo $m_id; ?>" action="course_setup.php?course_id=<?php echo $active_course_id; ?>" method="POST" class="hidden p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                    <input type="hidden" name="action" value="update_module">
+                                    <input type="hidden" name="id" value="<?php echo $m_id; ?>">
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <div class="col-span-2"><input type="text" name="title" required value="<?php echo $m['title']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"></div>
+                                        <input type="number" name="order_num" value="<?php echo $m['order_num']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                    </div>
+                                    <textarea name="description" rows="2" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"><?php echo $m['description']; ?></textarea>
+                                    <div class="flex justify-end space-x-2">
+                                        <button type="button" class="px-3 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold" onclick="toggleForm('edit-module-<?php echo $m_id; ?>')">Cancel</button>
+                                        <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold">Save Module</button>
+                                    </div>
+                                </form>
                                 
                                 <!-- Lessons list inside module -->
                                 <div class="pl-2 space-y-2">
@@ -368,8 +564,35 @@ include __DIR__ . '/../includes/header.php';
                                                 <span class="font-bold text-slate-800 "><?php echo sanitize($les['title']); ?></span>
                                                 <p class="text-[9px] text-slate-400 mt-0.5">Duration: <?php echo sanitize($les['duration']); ?> &bull; Video URL: <code><?php echo sanitize($les['video_url']); ?></code></p>
                                             </div>
-                                            <span class="text-[8px] bg-slate-100  px-1.5 py-0.5 rounded font-mono">Order: <?php echo $les['order_num']; ?></span>
+                                            <div class="flex items-center space-x-3">
+                                                <span class="text-[8px] bg-slate-100  px-1.5 py-0.5 rounded font-mono">Order: <?php echo $les['order_num']; ?></span>
+                                                <button type="button" class="text-[10px] font-bold text-blue-600 hover:underline" onclick="toggleForm('edit-lesson-<?php echo $les['id']; ?>')">Edit</button>
+                                                <form method="POST" class="inline" onsubmit="return confirm('Delete this lesson?');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                    <input type="hidden" name="action" value="delete_lesson">
+                                    <input type="hidden" name="id" value="<?php echo $les['id']; ?>">
+                                    <button type="submit" class="text-[10px] font-bold text-red-600 hover:underline">Delete</button>
+                                </form>
+                                            </div>
                                         </div>
+                                        <form id="edit-lesson-<?php echo $les['id']; ?>" action="course_setup.php?course_id=<?php echo $active_course_id; ?>" method="POST" class="hidden p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                            <input type="hidden" name="action" value="update_lesson">
+                                            <input type="hidden" name="id" value="<?php echo $les['id']; ?>">
+                                            <div class="grid grid-cols-3 gap-3">
+                                                <div class="col-span-2"><input type="text" name="title" required value="<?php echo $les['title']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"></div>
+                                                <input type="text" name="duration" value="<?php echo $les['duration']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-3">
+                                                <div class="col-span-2"><input type="text" name="video_url" value="<?php echo $les['video_url']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"></div>
+                                                <input type="number" name="order_num" value="<?php echo $les['order_num']; ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                                            </div>
+                                            <textarea name="content" rows="3" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"><?php echo $les['content']; ?></textarea>
+                                            <div class="flex justify-end space-x-2">
+                                                <button type="button" class="px-3 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold" onclick="toggleForm('edit-lesson-<?php echo $les['id']; ?>')">Cancel</button>
+                                                <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded text-[10px] font-bold">Save Lesson</button>
+                                            </div>
+                                        </form>
                                     <?php endforeach; ?>
                                     
                                     <!-- Add Lesson Form inside Module -->

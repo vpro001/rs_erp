@@ -56,6 +56,10 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="user-plus" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Student Registration</span>
                 </a>
+                <a href="<?php echo BASE_URL; ?>/admin/enrollments.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('enrollments.php', $current_page); ?>">
+                    <i data-lucide="clipboard-list" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Course Enrollments</span>
+                </a>
                 <a href="<?php echo BASE_URL; ?>/admin/course_setup.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('course_setup.php', $current_page); ?>">
                     <i data-lucide="book-open" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Course Builder</span>
