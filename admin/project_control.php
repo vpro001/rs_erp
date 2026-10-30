@@ -159,7 +159,7 @@ function recalc_progress($conn, $project_id)
     $stmt->close();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['add_milestone', 'toggle_milestone', 'post_update', 'set_status', 'issue_invoice'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['add_milestone', 'toggle_milestone', 'post_update', 'set_status', 'issue_invoice', 'remove_team_member', 'delete_milestone', 'edit_project', 'delete_project'], true)) {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         die("CSRF validation failed.");
     }
@@ -167,13 +167,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
     $pid = $_POST['project_id'] ?? '';
 
     try {
-        $stmt = $conn->prepare("SELECT p.*, cl.user_id AS client_user_id FROM projects p JOIN clients cl ON cl.id = p.client_id WHERE p.id = ?");
-        $stmt->bind_param("s", $pid);
-        $stmt->execute();
-        $proj = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        if (!$proj) {
-            throw new Exception("Project not found.");
+        // delete_project does not need to fetch the project first in the same way
+        if ($act !== 'delete_project') {
+            $stmt = $conn->prepare("SELECT p.*, cl.user_id AS client_user_id FROM projects p JOIN clients cl ON cl.id = p.client_id WHERE p.id = ?");
+            $stmt->bind_param("s", $pid);
+            $stmt->execute();
+            $proj = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$proj) {
+                throw new Exception("Project not found.");
+            }
         }
 
         if ($act === 'add_milestone') {
@@ -239,8 +242,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
             $stmt->close();
             send_notification($proj['client_user_id'], "New invoice", "An invoice of " . format_currency($amount) . " was issued: $desc", "FINANCE", "HIGH", "/client/billing.php");
             $success_msg = "Invoice $trans issued to the client.";
+        } elseif ($act === 'remove_team_member') {
+            $member_id = $_POST['member_id'] ?? '';
+            if (empty($member_id)) {
+                throw new Exception("Member ID is required.");
+            }
+            $stmt = $conn->prepare("DELETE FROM project_team_members WHERE id = ? AND project_id = ?");
+            $stmt->bind_param("ss", $member_id, $pid);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Removed team member from project", ["project_id" => $pid, "member_id" => $member_id]);
+            $success_msg = "Team member removed from project.";
+        } elseif ($act === 'delete_milestone') {
+            $milestone_id = $_POST['milestone_id'] ?? '';
+            if (empty($milestone_id)) {
+                throw new Exception("Milestone ID is required.");
+            }
+            $stmt = $conn->prepare("DELETE FROM project_milestones WHERE id = ? AND project_id = ?");
+            $stmt->bind_param("ss", $milestone_id, $pid);
+            $stmt->execute();
+            $stmt->close();
+            recalc_progress($conn, $pid);
+            log_activity("Deleted project milestone", ["project_id" => $pid, "milestone_id" => $milestone_id]);
+            $success_msg = "Milestone deleted and progress recalculated.";
+        } elseif ($act === 'edit_project') {
+            $title_ep = trim($_POST['title'] ?? '');
+            $description_ep = trim($_POST['description'] ?? '');
+            $budget_ep = round(floatval($_POST['budget'] ?? 0), 2);
+            $start_date_ep = $_POST['start_date'] ?? '';
+            $end_date_ep = $_POST['end_date'] ?? '';
+            $supervisor_id_ep = $_POST['supervisor_id'] ?? '';
+            $category_ep = trim($_POST['category'] ?? '');
+
+            if ($title_ep === '') {
+                throw new Exception("Project title is required.");
+            }
+            if ($budget_ep <= 0) {
+                throw new Exception("Budget must be greater than zero.");
+            }
+            $start_ts_ep = strtotime($start_date_ep);
+            $end_ts_ep = strtotime($end_date_ep);
+            if (!$start_ts_ep || !$end_ts_ep) {
+                throw new Exception("Valid start and end dates are required.");
+            }
+            if ($end_ts_ep <= $start_ts_ep) {
+                throw new Exception("End date must be after the start date.");
+            }
+
+            $start_sql_ep = date('Y-m-d H:i:s', $start_ts_ep);
+            $end_sql_ep = date('Y-m-d H:i:s', $end_ts_ep);
+
+            $stmt = $conn->prepare("UPDATE projects SET title = ?, description = ?, budget = ?, start_date = ?, end_date = ?, supervisor_id = ?, category = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->bind_param("ssdsssss", $title_ep, $description_ep, $budget_ep, $start_sql_ep, $end_sql_ep, $supervisor_id_ep, $category_ep, $pid);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Admin edited project", ["project_id" => $pid]);
+            $success_msg = "Project updated successfully.";
+        } elseif ($act === 'delete_project') {
+            $conn->begin_transaction();
+            try {
+                $stmt = $conn->prepare("DELETE FROM project_team_members WHERE project_id = ?");
+                $stmt->bind_param("s", $pid);
+                $stmt->execute();
+                $stmt->close();
+
+                $stmt = $conn->prepare("DELETE FROM project_milestones WHERE project_id = ?");
+                $stmt->bind_param("s", $pid);
+                $stmt->execute();
+                $stmt->close();
+
+                $stmt = $conn->prepare("DELETE FROM project_updates WHERE project_id = ?");
+                $stmt->bind_param("s", $pid);
+                $stmt->execute();
+                $stmt->close();
+
+                $stmt = $conn->prepare("DELETE FROM projects WHERE id = ?");
+                $stmt->bind_param("s", $pid);
+                $stmt->execute();
+                $stmt->close();
+
+                $conn->commit();
+                log_activity("Admin deleted project", ["project_id" => $pid]);
+                header('Location: project_control.php');
+                exit;
+            } catch (Exception $e) {
+                $conn->rollback();
+                throw $e;
+            }
         }
-        log_activity("Project delivery action: $act", ["project_id" => $pid]);
+
+        if ($act !== 'delete_project') {
+            log_activity("Project delivery action: $act", ["project_id" => $pid]);
+        }
     } catch (Exception $e) {
         $errors[] = $e->getMessage();
     }
@@ -311,7 +404,7 @@ if (!empty($active_proj_id)) {
         $stmt->execute();
         $ms_list = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
-        $stmt = $conn->prepare("SELECT * FROM project_updates WHERE project_id = ? ORDER BY created_at DESC LIMIT 5");
+        $stmt = $conn->prepare("SELECT * FROM project_updates WHERE project_id = ? ORDER BY created_at DESC LIMIT 20");
         $stmt->bind_param("s", $active_proj_id);
         $stmt->execute();
         $upd_list = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -343,23 +436,133 @@ if (!empty($active_proj_id)) {
     }
 }
 
+// Status badge helper
+function status_badge(string $status): string
+{
+    $map = [
+        'PLANNING'    => 'bg-slate-100 text-slate-600',
+        'IN_PROGRESS' => 'bg-blue-100 text-blue-700',
+        'COMPLETED'   => 'bg-emerald-100 text-emerald-700',
+        'ON_HOLD'     => 'bg-amber-100 text-amber-700',
+        'CANCELLED'   => 'bg-red-100 text-red-600',
+    ];
+    $cls = $map[$status] ?? 'bg-slate-100 text-slate-500';
+    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' . $cls . '">' . htmlspecialchars($status) . '</span>';
+}
+
 include __DIR__ . '/../includes/header.php';
 ?>
 
+<!-- Edit Project Modal -->
+<div id="edit-project-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <i data-lucide="pencil" class="w-4 h-4 text-indigo-500"></i>
+                Edit Project
+            </h3>
+            <button onclick="closeEditProjectModal()" class="text-slate-400 hover:text-slate-700 transition-colors text-lg leading-none">&times;</button>
+        </div>
+        <form method="POST" action="project_control.php" class="space-y-3.5">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <input type="hidden" name="action" value="edit_project">
+            <input type="hidden" name="project_id" id="ep_project_id">
+
+            <div>
+                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Project Title</label>
+                <input type="text" name="title" id="ep_title" required
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Category</label>
+                <input type="text" name="category" id="ep_category"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div>
+                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Budget (₦)</label>
+                <input type="number" name="budget" id="ep_budget" step="0.01" min="1" required
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Start Date</label>
+                    <input type="date" name="start_date" id="ep_start_date" required
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+                </div>
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">End Date</label>
+                    <input type="date" name="end_date" id="ep_end_date" required
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Supervisor</label>
+                <select name="supervisor_id" id="ep_supervisor_id"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+                    <option value="">— No Supervisor —</option>
+                    <?php foreach ($staff_members as $sm): ?>
+                        <option value="<?= $sm['id'] ?>"><?= sanitize($sm['first_name'] . ' ' . $sm['last_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Description / Scope</label>
+                <textarea name="description" id="ep_description" rows="3"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="Project scope and delivery details..."></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" onclick="closeEditProjectModal()"
+                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-sm transition-all">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Project Confirmation Modal -->
+<div id="delete-project-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-red-700 flex items-center gap-2">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+                Delete Project
+            </h3>
+            <button onclick="closeDeleteProjectModal()" class="text-slate-400 hover:text-slate-700 transition-colors text-lg leading-none">&times;</button>
+        </div>
+        <p class="text-xs text-slate-600 mb-1">You are about to permanently delete:</p>
+        <p class="text-xs font-bold text-slate-900 mb-4 bg-red-50 border border-red-100 rounded-lg px-3 py-2" id="dp_project_title"></p>
+        <p class="text-xs text-slate-500 mb-5">This will also delete all milestones, team assignments and updates for this project. <span class="font-bold text-red-600">This cannot be undone.</span></p>
+        <form method="POST" action="project_control.php">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <input type="hidden" name="action" value="delete_project">
+            <input type="hidden" name="project_id" id="dp_project_id">
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeDeleteProjectModal()"
+                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                    Delete Project
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Alerts -->
 <?php if (!empty($errors)): ?>
-    <div
-        class="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-600  rounded-xl text-sm font-medium">
+    <div class="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-600 rounded-xl text-sm font-medium">
         <?php foreach ($errors as $err): ?>
-            <p><?php echo $err; ?></p>
+            <p><?= $err ?></p>
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
 
 <?php if (!empty($success_msg)): ?>
-    <div
-        class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600  rounded-xl text-sm font-medium">
-        <?php echo $success_msg; ?>
+    <div class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded-xl text-sm font-medium">
+        <?= $success_msg ?>
     </div>
 <?php endif; ?>
 
@@ -369,10 +572,8 @@ include __DIR__ . '/../includes/header.php';
     <div class="space-y-6">
 
         <!-- Approved proposals awaiting kickoff -->
-        <div
-            class="bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm">
-            <h4
-                class="text-sm font-bold text-slate-900  mb-4 flex items-center space-x-2 border-b border-slate-150  pb-3">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h4 class="text-sm font-bold text-slate-900 mb-4 flex items-center space-x-2 border-b border-slate-150 pb-3">
                 <i data-lucide="inbox" class="w-4 h-4 text-emerald-500"></i>
                 <span>Approved Contracts Kickoff Queue</span>
             </h4>
@@ -382,59 +583,58 @@ include __DIR__ . '/../includes/header.php';
             <?php else: ?>
                 <div class="space-y-3">
                     <?php foreach ($approved_proposals as $ap): ?>
-                        <div
-                            class="p-3.5 bg-slate-50  border border-slate-200/50  rounded-xl space-y-3">
+                        <div class="p-3.5 bg-slate-50 border border-slate-200/50 rounded-xl space-y-3">
                             <div>
-                                <h5 class="text-xs font-bold text-slate-900 ">
-                                    <?php echo sanitize($ap['title']); ?></h5>
+                                <h5 class="text-xs font-bold text-slate-900">
+                                    <?= sanitize($ap['title']) ?></h5>
                                 <div class="flex justify-between items-center text-[9px] text-slate-400 mt-1">
-                                    <span>Client: <?php echo sanitize($ap['company_name']); ?></span>
-                                    <span>Budget: <?php echo format_currency($ap['amount']); ?></span>
+                                    <span>Client: <?= sanitize($ap['company_name']) ?></span>
+                                    <span>Budget: <?= format_currency($ap['amount']) ?></span>
                                 </div>
                                 <?php
                                 $dep = $ap['deposit_status'];
                                 $dep_ok = ($dep === null || $dep === 'COMPLETED');
                                 ?>
-                                <p class="text-[10px] mt-1.5 font-semibold <?php echo $dep_ok ? 'text-emerald-600' : 'text-amber-600'; ?>">
-                                    <?php echo $dep === null ? 'No deposit invoice on file' : ($dep === 'COMPLETED' ? 'Deposit paid - ready to kick off' : 'Waiting for client deposit'); ?>
+                                <p class="text-[10px] mt-1.5 font-semibold <?= $dep_ok ? 'text-emerald-600' : 'text-amber-600' ?>">
+                                    <?= $dep === null ? 'No deposit invoice on file' : ($dep === 'COMPLETED' ? 'Deposit paid - ready to kick off' : 'Waiting for client deposit') ?>
                                 </p>
                             </div>
 
                             <!-- Trigger form toggle -->
-                            <button <?php echo $dep_ok ? '' : 'disabled'; ?>
+                            <button <?= $dep_ok ? '' : 'disabled' ?>
                                 class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-[10px] transition-all flex items-center justify-center space-x-1"
-                                onclick="toggleForm('kickoff-form-<?php echo $ap['id']; ?>')">
+                                onclick="toggleForm('kickoff-form-<?= $ap['id'] ?>')">
                                 <i data-lucide="play" class="w-3 h-3"></i>
                                 <span>Kicked Off Project</span>
                             </button>
 
                             <!-- Project Initiation Form -->
-                            <form id="kickoff-form-<?php echo $ap['id']; ?>" action="project_control.php" method="POST"
-                                class="hidden mt-3 pt-3 border-t border-slate-150  space-y-3">
-                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <form id="kickoff-form-<?= $ap['id'] ?>" action="project_control.php" method="POST"
+                                class="hidden mt-3 pt-3 border-t border-slate-150 space-y-3">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="action" value="initiate_project">
-                                <input type="hidden" name="proposal_id" value="<?php echo $ap['id']; ?>">
-                                <input type="hidden" name="title" value="<?php echo sanitize($ap['title']); ?>">
-                                <input type="hidden" name="budget" value="<?php echo $ap['amount']; ?>">
-                                <input type="hidden" name="category" value="<?php echo sanitize($ap['category']); ?>">
+                                <input type="hidden" name="proposal_id" value="<?= $ap['id'] ?>">
+                                <input type="hidden" name="title" value="<?= sanitize($ap['title']) ?>">
+                                <input type="hidden" name="budget" value="<?= $ap['amount'] ?>">
+                                <input type="hidden" name="category" value="<?= sanitize($ap['category']) ?>">
 
                                 <div>
                                     <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Custom Project
                                         Serial ID</label>
                                     <input type="text" name="project_id" required placeholder="PRJ-8821"
-                                        value="PRJ-<?php echo mt_rand(1000, 9999); ?>"
-                                        class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                        value="PRJ-<?= mt_rand(1000, 9999) ?>"
+                                        class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                                 </div>
 
                                 <div>
                                     <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Assigned Supervisor
                                         Host</label>
                                     <select name="supervisor_id" required
-                                        class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                        class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                                         <option value="">Choose Supervisor...</option>
                                         <?php foreach ($staff_members as $sm): ?>
-                                            <option value="<?php echo $sm['id']; ?>">
-                                                <?php echo sanitize($sm['first_name'] . ' ' . $sm['last_name']); ?></option>
+                                            <option value="<?= $sm['id'] ?>">
+                                                <?= sanitize($sm['first_name'] . ' ' . $sm['last_name']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -443,14 +643,14 @@ include __DIR__ . '/../includes/header.php';
                                     <div>
                                         <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Start
                                             Date</label>
-                                        <input type="date" name="start_date" required value="<?php echo date('Y-m-d'); ?>"
-                                            class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                        <input type="date" name="start_date" required value="<?= date('Y-m-d') ?>"
+                                            class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                                     </div>
                                     <div>
                                         <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">End Date</label>
                                         <input type="date" name="end_date" required
-                                            value="<?php echo date('Y-m-d', strtotime('+3 months')); ?>"
-                                            class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                            value="<?= date('Y-m-d', strtotime('+3 months')) ?>"
+                                            class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                                     </div>
                                 </div>
 
@@ -458,12 +658,12 @@ include __DIR__ . '/../includes/header.php';
                                     <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Scope
                                         details</label>
                                     <textarea name="description" placeholder="Write final engineering task scopes..." rows="2"
-                                        class="w-full px-3 py-2 bg-white  border border-slate-250  rounded-lg text-xs outline-none"><?php echo sanitize($ap['description']); ?></textarea>
+                                        class="w-full px-3 py-2 bg-white border border-slate-250 rounded-lg text-xs outline-none"><?= sanitize($ap['description']) ?></textarea>
                                 </div>
 
                                 <div class="flex justify-end space-x-2 pt-1">
                                     <button type="button" class="px-3 py-1 bg-slate-105 rounded text-[9px] font-bold"
-                                        onclick="toggleForm('kickoff-form-<?php echo $ap['id']; ?>')">Cancel</button>
+                                        onclick="toggleForm('kickoff-form-<?= $ap['id'] ?>')">Cancel</button>
                                     <button type="submit"
                                         class="px-3 py-1 bg-emerald-600 text-white rounded text-[9px] font-bold shadow-sm">Save
                                         Kickoff</button>
@@ -481,36 +681,105 @@ include __DIR__ . '/../includes/header.php';
     <div class="lg:col-span-2 space-y-6">
 
         <!-- Active Projects List -->
-        <div
-            class="bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm">
-            <h4
-                class="text-sm font-bold text-slate-900  mb-6 flex items-center space-x-2 border-b border-slate-100  pb-3">
-                <i data-lucide="briefcase" class="w-4 h-4 text-blue-500"></i>
-                <span>Active CRM Project Workspaces</span>
-            </h4>
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+                <h4 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                    <i data-lucide="briefcase" class="w-4 h-4 text-blue-500"></i>
+                    <span>Active CRM Project Workspaces</span>
+                </h4>
+                <?php if (!empty($projects)): ?>
+                    <span class="text-[10px] text-slate-400 font-semibold"><?= count($projects) ?> project<?= count($projects) !== 1 ? 's' : '' ?></span>
+                <?php endif; ?>
+            </div>
+
+            <!-- Search -->
+            <?php if (!empty($projects)): ?>
+                <div class="mb-4">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <input type="text" id="project-search" placeholder="Search projects by name, client or status..."
+                            class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all">
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <?php if (empty($projects)): ?>
-                <p class="text-xs text-slate-400 text-center py-4">No projects registered.</p>
+                <p class="text-xs text-slate-400 text-center py-8">No projects registered.</p>
             <?php else: ?>
-                <div class="space-y-3.5">
-                    <?php foreach ($projects as $pr): ?>
-                        <div
-                            class="p-4 bg-slate-50  border border-slate-150  rounded-xl flex items-center justify-between <?php echo $pr['id'] === $active_proj_id ? 'ring-2 ring-indigo-500' : ''; ?>">
-                            <div>
-                                <span
-                                    class="text-[9px] bg-slate-100  px-2 py-0.5 rounded font-mono text-slate-450 uppercase font-semibold"><?php echo sanitize($pr['project_id']); ?></span>
-                                <h5 class="text-xs font-bold text-slate-905  mt-1.5">
-                                    <?php echo sanitize($pr['title']); ?></h5>
-                                <p class="text-[9px] text-slate-400 mt-1">Client: <?php echo sanitize($pr['company_name']); ?>
-                                    &bull; Supervisor:
-                                    <?php echo sanitize($pr['supervisor_first'] . ' ' . $pr['supervisor_last']); ?> &bull;
-                                    Status: <span class="uppercase"><?php echo sanitize($pr['status']); ?></span></p>
+                <div class="space-y-3.5" id="projects-list">
+                    <?php foreach ($projects as $pr):
+                        $days_left = ceil((strtotime($pr['end_date']) - time()) / 86400);
+                        $days_cls = $days_left < 0 ? 'text-red-600 font-bold' : ($days_left < 7 ? 'text-amber-600 font-semibold' : 'text-slate-400');
+                        $days_label = $days_left < 0 ? abs($days_left) . 'd overdue' : $days_left . ' days left';
+                        $prog = intval($pr['progress']);
+
+                        $js_proj = json_encode([
+                            'id'            => $pr['id'],
+                            'title'         => $pr['title'],
+                            'category'      => $pr['category'] ?? '',
+                            'budget'        => $pr['budget'],
+                            'start_date'    => date('Y-m-d', strtotime($pr['start_date'])),
+                            'end_date'      => date('Y-m-d', strtotime($pr['end_date'])),
+                            'supervisor_id' => $pr['supervisor_id'] ?? '',
+                            'description'   => $pr['description'] ?? '',
+                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                    ?>
+                        <div data-project-card
+                            class="p-4 bg-slate-50 border border-slate-150 rounded-xl space-y-2.5 <?= $pr['id'] === $active_proj_id ? 'ring-2 ring-indigo-400 bg-indigo-50/30' : '' ?>">
+                            <!-- Row 1: serial + badges + actions -->
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9px] bg-slate-200 px-2 py-0.5 rounded font-mono text-slate-500 uppercase font-semibold"><?= sanitize($pr['project_id']) ?></span>
+                                    <?= status_badge($pr['status']) ?>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="openEditProjectModal(<?= htmlspecialchars($js_proj, ENT_QUOTES) ?>)"
+                                        title="Edit project"
+                                        class="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-400 hover:text-indigo-600 transition-all">
+                                        <i data-lucide="pencil" class="w-3 h-3"></i>
+                                    </button>
+                                    <button onclick="openDeleteProjectModal('<?= addslashes($pr['id']) ?>', '<?= addslashes($pr['title']) ?>')"
+                                        title="Delete project"
+                                        class="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-400 hover:text-red-600 transition-all">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
                             </div>
 
-                            <a href="project_control.php?project_id=<?php echo $pr['id']; ?>"
-                                class="px-3.5 py-1.5 bg-indigo-650 hover:bg-indigo-555 text-white rounded font-bold text-[10px] transition-all">
-                                Manage
-                            </a>
+                            <!-- Row 2: title -->
+                            <h5 class="text-xs font-bold text-slate-900 leading-snug"><?= sanitize($pr['title']) ?></h5>
+
+                            <!-- Row 3: meta -->
+                            <p class="text-[9px] text-slate-400">
+                                <span class="font-medium text-slate-600"><?= sanitize($pr['company_name']) ?></span>
+                                <?php if (!empty($pr['supervisor_first'])): ?>
+                                    &bull; <span>Supervisor: <?= sanitize($pr['supervisor_first'] . ' ' . $pr['supervisor_last']) ?></span>
+                                <?php endif; ?>
+                            </p>
+
+                            <!-- Row 4: progress bar -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[9px] text-slate-400 font-medium">Progress</span>
+                                    <span class="text-[9px] font-bold text-slate-700"><?= $prog ?>%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-1.5">
+                                    <div class="<?= $prog >= 100 ? 'bg-emerald-500' : 'bg-blue-500' ?> h-1.5 rounded-full transition-all" style="width: <?= $prog ?>%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Row 5: dates + days left + manage -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5 text-[9px] text-slate-400">
+                                    <i data-lucide="calendar" class="w-3 h-3"></i>
+                                    <span><?= date('M j', strtotime($pr['start_date'])) ?> &rarr; <?= date('M j, Y', strtotime($pr['end_date'])) ?></span>
+                                    <span class="<?= $days_cls ?>">&bull; <?= $days_label ?></span>
+                                </div>
+                                <a href="project_control.php?project_id=<?= $pr['id'] ?>"
+                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[10px] transition-all flex items-center gap-1">
+                                    Manage <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                                </a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -519,15 +788,14 @@ include __DIR__ . '/../includes/header.php';
 
         <!-- Team allocator workflow panel -->
         <?php if ($active_proj): ?>
-            <div
-                class="bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm space-y-6">
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
 
-                <div class="flex justify-between items-center border-b border-slate-100  pb-3">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                     <div>
                         <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Roster
                             Allocator</span>
-                        <h4 class="text-sm font-bold text-slate-950  mt-1">
-                            <?php echo sanitize($active_proj['title']); ?> Team</h4>
+                        <h4 class="text-sm font-bold text-slate-950 mt-1">
+                            <?= sanitize($active_proj['title']) ?> Team</h4>
                     </div>
                 </div>
 
@@ -539,19 +807,33 @@ include __DIR__ . '/../includes/header.php';
                             members</span>
 
                         <?php if (empty($team)): ?>
-                            <p
-                                class="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200  rounded-xl">
+                            <p class="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-xl">
                                 No engineering team allocated yet.</p>
                         <?php else: ?>
                             <div class="space-y-2">
                                 <?php foreach ($team as $tm): ?>
-                                    <div class="p-3 bg-slate-50  rounded-xl flex items-center justify-between">
+                                    <div class="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-2">
                                         <div>
-                                            <h5 class="text-xs font-bold text-slate-900 ">
-                                                <?php echo sanitize($tm['first_name'] . ' ' . $tm['last_name']); ?></h5>
-                                            <p class="text-[9px] text-slate-400 mt-0.5"><?php echo sanitize($tm['role']); ?> &bull;
-                                                <?php echo sanitize($tm['department']); ?></p>
+                                            <h5 class="text-xs font-bold text-slate-900">
+                                                <?= sanitize($tm['first_name'] . ' ' . $tm['last_name']) ?></h5>
+                                            <p class="text-[9px] text-slate-400 mt-0.5"><?= sanitize($tm['role']) ?> &bull;
+                                                <?= sanitize($tm['department']) ?>
+                                                <?php if (!empty($tm['join_date'])): ?>
+                                                    &bull; Joined <?= date('M j, Y', strtotime($tm['join_date'])) ?>
+                                                <?php endif; ?>
+                                            </p>
                                         </div>
+                                        <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>"
+                                            onsubmit="return confirm('Remove this team member?')">
+                                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                            <input type="hidden" name="action" value="remove_team_member">
+                                            <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                                            <input type="hidden" name="member_id" value="<?= $tm['id'] ?>">
+                                            <button type="submit" title="Remove member"
+                                                class="p-1.5 rounded-lg bg-white border border-red-100 hover:bg-red-50 text-red-400 hover:text-red-600 transition-all flex-shrink-0">
+                                                <i data-lucide="user-minus" class="w-3 h-3"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -559,27 +841,25 @@ include __DIR__ . '/../includes/header.php';
                     </div>
 
                     <!-- Member allocation form -->
-                    <div
-                        class="bg-slate-50  border border-slate-150  p-4 rounded-xl space-y-4">
-                        <span
-                            class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-100  pb-2">Allocate
+                    <div class="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-4">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-100 pb-2">Allocate
                             Team Member</span>
 
-                        <form action="project_control.php?project_id=<?php echo $active_proj_id; ?>" method="POST"
+                        <form action="project_control.php?project_id=<?= $active_proj_id ?>" method="POST"
                             class="space-y-3">
-                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="action" value="assign_team">
-                            <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
+                            <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
 
                             <div>
                                 <label for="team-staff"
                                     class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Choose Engineer</label>
                                 <select name="staff_id" id="team-staff" required
-                                    class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                    class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                                     <option value="">Choose Engineer...</option>
                                     <?php foreach ($staff_members as $sm): ?>
-                                        <option value="<?php echo $sm['id']; ?>">
-                                            <?php echo sanitize($sm['first_name'] . ' ' . $sm['last_name']); ?></option>
+                                        <option value="<?= $sm['id'] ?>">
+                                            <?= sanitize($sm['first_name'] . ' ' . $sm['last_name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -590,7 +870,7 @@ include __DIR__ . '/../includes/header.php';
                                     Title</label>
                                 <input type="text" name="role" id="team-role" required
                                     placeholder="Lead Architect, Developer, Quality check"
-                                    class="w-full px-3 py-1.5 bg-white  border border-slate-250  rounded-lg text-xs outline-none">
+                                    class="w-full px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
                             </div>
 
                             <button type="submit"
@@ -608,79 +888,166 @@ include __DIR__ . '/../includes/header.php';
         <?php if ($active_proj): ?>
             <!-- Delivery panel: what the client sees on their project page -->
             <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-                <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
-                    <div>
+                <div class="flex flex-wrap justify-between items-start gap-3 border-b border-slate-100 pb-4">
+                    <div class="flex-1 min-w-0">
                         <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Delivery &amp; client updates</span>
-                        <h4 class="text-sm font-bold text-slate-900 mt-1"><?php echo sanitize($active_proj['title']); ?> &bull; <?php echo intval($active_proj['progress']); ?>% complete</h4>
+                        <h4 class="text-sm font-bold text-slate-900 mt-1 flex items-center gap-2 flex-wrap">
+                            <?= sanitize($active_proj['title']) ?>
+                            <?= status_badge($active_proj['status']) ?>
+                        </h4>
+                        <!-- Overall progress bar -->
+                        <div class="mt-3 max-w-xs">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[9px] text-slate-400 font-medium">Overall completion</span>
+                                <span class="text-[9px] font-bold text-slate-700"><?= intval($active_proj['progress']) ?>%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-2">
+                                <div class="<?= intval($active_proj['progress']) >= 100 ? 'bg-emerald-500' : 'bg-blue-500' ?> h-2 rounded-full transition-all"
+                                    style="width: <?= intval($active_proj['progress']) ?>%"></div>
+                            </div>
+                        </div>
                     </div>
-                    <form method="POST" action="project_control.php?project_id=<?php echo $active_proj_id; ?>" class="flex items-center gap-2">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>" class="flex items-center gap-2 flex-shrink-0">
+                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="action" value="set_status">
-                        <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
-                        <select name="status" class="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                        <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                        <select name="status" class="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200">
                             <?php foreach (['PLANNING', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED'] as $st): ?>
-                                <option value="<?php echo $st; ?>" <?php echo $active_proj['status'] === $st ? 'selected' : ''; ?>><?php echo $st; ?></option>
+                                <option value="<?= $st ?>" <?= $active_proj['status'] === $st ? 'selected' : '' ?>><?= $st ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <button class="px-3 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-bold">Set status</button>
+                        <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-bold transition-all">Set status</button>
                     </form>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Milestones -->
                     <div class="space-y-3">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Milestones (tick to complete)</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Milestones</span>
                         <?php foreach ($ms_list as $m): ?>
-                            <form method="POST" action="project_control.php?project_id=<?php echo $active_proj_id; ?>" class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                <input type="hidden" name="action" value="toggle_milestone">
-                                <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
-                                <input type="hidden" name="milestone_id" value="<?php echo $m['id']; ?>">
-                                <div>
-                                    <h5 class="text-xs font-bold <?php echo $m['completed'] ? 'text-emerald-600 line-through' : 'text-slate-900'; ?>"><?php echo sanitize($m['title']); ?></h5>
-                                    <p class="text-[9px] text-slate-400">Due <?php echo date('M d, Y', strtotime($m['due_date'])); ?></p>
+                            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <h5 class="text-xs font-bold <?= $m['completed'] ? 'text-emerald-600 line-through' : 'text-slate-900' ?>">
+                                        <?= sanitize($m['title']) ?></h5>
+                                    <p class="text-[9px] text-slate-400">
+                                        Due <?= date('M d, Y', strtotime($m['due_date'])) ?>
+                                        <?php if ($m['completed'] && !empty($m['completed_at'])): ?>
+                                            &bull; <span class="text-emerald-600">Done <?= date('M d, Y', strtotime($m['completed_at'])) ?></span>
+                                        <?php endif; ?>
+                                    </p>
                                 </div>
-                                <button class="px-2.5 py-1 rounded text-[10px] font-bold <?php echo $m['completed'] ? 'bg-slate-200 text-slate-600' : 'bg-emerald-600 text-white'; ?>"><?php echo $m['completed'] ? 'Reopen' : 'Complete'; ?></button>
-                            </form>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <!-- Toggle complete -->
+                                    <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                        <input type="hidden" name="action" value="toggle_milestone">
+                                        <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                                        <input type="hidden" name="milestone_id" value="<?= $m['id'] ?>">
+                                        <button class="px-2.5 py-1 rounded-lg text-[10px] font-bold <?= $m['completed'] ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-500' ?> transition-all">
+                                            <?= $m['completed'] ? 'Reopen' : 'Complete' ?>
+                                        </button>
+                                    </form>
+                                    <!-- Delete milestone -->
+                                    <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>"
+                                        onsubmit="return confirm('Delete this milestone?')">
+                                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                        <input type="hidden" name="action" value="delete_milestone">
+                                        <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                                        <input type="hidden" name="milestone_id" value="<?= $m['id'] ?>">
+                                        <button type="submit" title="Delete milestone"
+                                            class="p-1.5 rounded-lg bg-white border border-red-100 hover:bg-red-50 text-red-400 hover:text-red-600 transition-all">
+                                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
-                        <form method="POST" action="project_control.php?project_id=<?php echo $active_proj_id; ?>" class="grid grid-cols-2 gap-2 pt-2">
-                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
+                        <!-- Add milestone form -->
+                        <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>" class="grid grid-cols-2 gap-2 pt-1">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="action" value="add_milestone">
-                            <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
-                            <input type="text" name="title" required placeholder="New milestone" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
-                            <input type="date" name="due_date" required class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
-                            <input type="text" name="description" placeholder="Description (optional)" class="col-span-2 px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
-                            <button class="col-span-2 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">Add milestone</button>
+                            <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                            <input type="text" name="title" required placeholder="New milestone" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200">
+                            <input type="date" name="due_date" required class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200">
+                            <input type="text" name="description" placeholder="Description (optional)" class="col-span-2 px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200">
+                            <button class="col-span-2 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all">Add milestone</button>
                         </form>
                     </div>
 
                     <div class="space-y-6">
-                        <div class="space-y-2">
+                        <!-- Updates feed -->
+                        <div class="space-y-3">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Post an update to the client</span>
-                            <form method="POST" action="project_control.php?project_id=<?php echo $active_proj_id; ?>" class="space-y-2">
-                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>" class="space-y-2">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="action" value="post_update">
-                                <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
-                                <textarea name="message" rows="3" required placeholder="What was done, what's next..." class="w-full px-3 py-2 bg-white border border-slate-250 rounded-lg text-xs"></textarea>
-                                <button class="w-full py-1.5 bg-slate-800 text-white rounded-lg text-xs font-bold">Post update</button>
+                                <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                                <textarea name="message" rows="3" required placeholder="What was done, what's next..."
+                                    class="w-full px-3 py-2 bg-white border border-slate-250 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-200"></textarea>
+                                <button class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-all">Post update</button>
                             </form>
-                            <?php foreach ($upd_list as $u): ?>
-                                <p class="text-[10px] text-slate-500 border-l-2 border-slate-200 pl-2"><b><?php echo sanitize($u['author']); ?></b> &bull; <?php echo date('M d', strtotime($u['created_at'])); ?>: <?php echo sanitize(mb_substr($u['message'], 0, 120)); ?></p>
-                            <?php endforeach; ?>
+
+                            <?php if (!empty($upd_list)): ?>
+                                <div class="space-y-3 mt-1">
+                                    <?php foreach ($upd_list as $u): ?>
+                                        <div class="flex gap-3">
+                                            <div class="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="text-xs font-bold text-slate-900"><?= sanitize($u['author']) ?></span>
+                                                    <span class="text-[10px] text-slate-400"><?= date('M j, Y', strtotime($u['created_at'])) ?></span>
+                                                </div>
+                                                <p class="text-xs text-slate-600 mt-0.5 break-words"><?= sanitize(mb_substr($u['message'], 0, 200)) ?><?= mb_strlen($u['message']) > 200 ? '…' : '' ?></p>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
+                        <!-- Invoices -->
                         <div class="space-y-2">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Invoices for this project</span>
-                            <?php foreach ($inv_list as $iv): ?>
-                                <p class="text-[10px] text-slate-600 flex justify-between"><span><?php echo sanitize($iv['type']); ?> &bull; <?php echo sanitize($iv['transaction_id']); ?></span><span class="font-bold"><?php echo format_currency($iv['amount']); ?> &bull; <?php echo sanitize($iv['status']); ?></span></p>
-                            <?php endforeach; ?>
-                            <form method="POST" action="project_control.php?project_id=<?php echo $active_proj_id; ?>" class="grid grid-cols-2 gap-2">
-                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
+                            <?php if (!empty($inv_list)): ?>
+                                <div class="space-y-1.5">
+                                    <?php foreach ($inv_list as $iv):
+                                        $inv_status_cls = match($iv['status']) {
+                                            'COMPLETED' => 'bg-emerald-100 text-emerald-700',
+                                            'CANCELLED' => 'bg-red-100 text-red-600',
+                                            default     => 'bg-amber-100 text-amber-700',
+                                        };
+                                    ?>
+                                        <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-100 rounded-xl gap-2">
+                                            <div class="min-w-0">
+                                                <p class="text-[10px] font-bold text-slate-700 font-mono"><?= sanitize($iv['transaction_id']) ?></p>
+                                                <p class="text-[9px] text-slate-400"><?= sanitize($iv['type']) ?></p>
+                                            </div>
+                                            <div class="flex items-center gap-2 flex-shrink-0">
+                                                <span class="text-[10px] font-bold text-slate-900"><?= format_currency($iv['amount']) ?></span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase <?= $inv_status_cls ?>"><?= sanitize($iv['status']) ?></span>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="text-[10px] text-slate-400 text-center py-2">No invoices issued yet.</p>
+                            <?php endif; ?>
+
+                            <form method="POST" action="project_control.php?project_id=<?= $active_proj_id ?>" class="grid grid-cols-2 gap-2 pt-1">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="action" value="issue_invoice">
-                                <input type="hidden" name="project_id" value="<?php echo $active_proj_id; ?>">
-                                <select name="type" class="px-2 py-1.5 bg-white border border-slate-250 rounded-lg text-xs"><option value="MILESTONE">Milestone</option><option value="FINAL">Final</option></select>
-                                <input type="number" name="amount" step="0.01" min="1" required placeholder="Amount (₦)" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
-                                <input type="text" name="label" required placeholder="e.g. Milestone 2 - Core build" class="col-span-2 px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs">
-                                <button class="col-span-2 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Issue invoice</button>
+                                <input type="hidden" name="project_id" value="<?= $active_proj_id ?>">
+                                <select name="type" class="px-2 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
+                                    <option value="MILESTONE">Milestone</option>
+                                    <option value="FINAL">Final</option>
+                                </select>
+                                <input type="number" name="amount" step="0.01" min="1" required placeholder="Amount (₦)" class="px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
+                                <input type="text" name="label" required placeholder="e.g. Milestone 2 - Core build" class="col-span-2 px-3 py-1.5 bg-white border border-slate-250 rounded-lg text-xs outline-none">
+                                <button class="col-span-2 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all">Issue invoice</button>
                             </form>
                         </div>
                     </div>
@@ -696,6 +1063,60 @@ include __DIR__ . '/../includes/header.php';
     function toggleForm(formId) {
         const form = document.getElementById(formId);
         form.classList.toggle('hidden');
+    }
+
+    function openEditProjectModal(data) {
+        document.getElementById('ep_project_id').value = data.id;
+        document.getElementById('ep_title').value = data.title;
+        document.getElementById('ep_category').value = data.category;
+        document.getElementById('ep_budget').value = data.budget;
+        document.getElementById('ep_start_date').value = data.start_date;
+        document.getElementById('ep_end_date').value = data.end_date;
+        document.getElementById('ep_supervisor_id').value = data.supervisor_id;
+        document.getElementById('ep_description').value = data.description;
+        document.getElementById('edit-project-modal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeEditProjectModal() {
+        document.getElementById('edit-project-modal').classList.add('hidden');
+    }
+
+    function openDeleteProjectModal(id, title) {
+        document.getElementById('dp_project_id').value = id;
+        document.getElementById('dp_project_title').textContent = title;
+        document.getElementById('delete-project-modal').classList.remove('hidden');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeDeleteProjectModal() {
+        document.getElementById('delete-project-modal').classList.add('hidden');
+    }
+
+    // Escape key closes modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeEditProjectModal();
+            closeDeleteProjectModal();
+        }
+    });
+
+    // Backdrop click closes modals
+    document.addEventListener('click', function(e) {
+        if (e.target === document.getElementById('edit-project-modal')) closeEditProjectModal();
+        if (e.target === document.getElementById('delete-project-modal')) closeDeleteProjectModal();
+    });
+
+    // Project search filter
+    const projectSearch = document.getElementById('project-search');
+    if (projectSearch) {
+        projectSearch.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('[data-project-card]').forEach(function(card) {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(q) ? '' : 'none';
+            });
+        });
     }
 </script>
 
