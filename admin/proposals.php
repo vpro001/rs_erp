@@ -34,6 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $services = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', $_POST['services'] ?? ''))));
         $valid_days = max(1, min(90, intval($_POST['valid_days'] ?? 14)));
         $assigned = $_POST['assigned_to'] ?? '';
+        // Keep a legacy/custom category as-is unless staff pick one from the catalog
+        $category = trim($_POST['category'] ?? '');
+        if ($category === '' || (!service_by_label($category) && $category !== $prop['category'])) {
+            $category = $prop['category'];
+        }
 
         if ($title === '' || $amount <= 0 || $timeline === '' || empty($services)) {
             throw new Exception("Title, a price above zero, a timeline and at least one included service are required.");
@@ -55,8 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $status = $send ? 'PENDING' : $prop['status'];
         $valid_until = date('Y-m-d H:i:s', strtotime("+$valid_days days"));
 
-        $stmt = $conn->prepare("UPDATE proposals SET title = ?, amount = ?, timeline = ?, description = ?, services = ?, assigned_to = ?, status = ?, valid_until = ? WHERE id = ?");
-        $stmt->bind_param("sdsssssss", $title, $amount, $timeline, $description, $services_json, $assigned, $status, $valid_until, $id);
+        $stmt = $conn->prepare("UPDATE proposals SET title = ?, category = ?, amount = ?, timeline = ?, description = ?, services = ?, assigned_to = ?, status = ?, valid_until = ? WHERE id = ?");
+        $stmt->bind_param("ssdsssssss", $title, $category, $amount, $timeline, $description, $services_json, $assigned, $status, $valid_until, $id);
         $stmt->execute();
         $stmt->close();
 
@@ -111,7 +116,11 @@ include __DIR__ . '/../includes/header.php';
                 <div>
                     <span class="text-[9px] bg-slate-100 px-2 py-0.5 rounded font-mono text-slate-500 uppercase font-semibold"><?php echo sanitize($p['proposal_id']); ?></span>
                     <h4 class="text-sm font-bold text-slate-900 mt-1"><?php echo sanitize($p['title']); ?></h4>
-                    <p class="text-[11px] text-slate-400 mt-0.5"><?php echo sanitize($p['company_name'] ?: $p['contact_person']); ?> &bull; requested <?php echo date('M d, Y', strtotime($p['created_at'])); ?></p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                        <?php $svc = service_by_label($p['category']); ?>
+                        <span class="inline-flex items-center gap-1 font-semibold text-slate-600"><i data-lucide="<?php echo $svc['icon'] ?? 'tag'; ?>" class="w-3 h-3"></i><?php echo sanitize($p['category']); ?></span>
+                        &bull; <?php echo sanitize($p['company_name'] ?: $p['contact_person']); ?> &bull; requested <?php echo date('M d, Y', strtotime($p['created_at'])); ?>
+                    </p>
                 </div>
                 <div class="text-right">
                     <span class="px-2.5 py-1 rounded text-[10px] font-bold uppercase <?php echo $p['status'] === 'DRAFT' ? 'bg-indigo-500/10 text-indigo-600' : ($p['status'] === 'PENDING' ? 'bg-amber-500/10 text-amber-600' : ($p['status'] === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-500')); ?>">
@@ -129,6 +138,24 @@ include __DIR__ . '/../includes/header.php';
                     <p class="font-bold text-slate-800 text-[10px] uppercase tracking-wider">Client brief</p>
                     <p><b>Timeline wanted:</b> <?php echo sanitize($p['timeline']); ?><?php echo !empty($b['budget_note']) ? ' &bull; <b>Budget in mind:</b> ' . sanitize($b['budget_note']) : ''; ?></p>
                     <?php if (!empty($b['current_site'])): ?><p><b>Current website:</b> <?php echo sanitize($b['current_site']); ?></p><?php endif; ?>
+                    <?php
+                    // Service-specific answers from client/onboarding.php
+                    $brief_fields = [
+                        'website_kind' => ['Website', ['new' => 'New website', 'revamp' => 'Revamp of existing site', 'ecommerce' => 'Online store']],
+                        'platforms' => ['Platforms', ['android' => 'Android', 'ios' => 'iOS', 'both' => 'Android & iOS']],
+                        'participants' => ['Participants', null],
+                        'training_format' => ['Venue', ['onsite' => "At the client's office", 'centre' => 'At our training centre', 'online' => 'Online', 'flexible' => 'Open to suggestions']],
+                        'training_topics' => ['Topics', null],
+                        'site_address' => ['Site address', null],
+                        'premises' => ['Premises', ['home' => 'Home / residence', 'office' => 'Office', 'shop' => 'Shop / retail', 'warehouse' => 'Warehouse / factory', 'estate' => 'Estate / compound', 'school' => 'School / church', 'other' => 'Other']],
+                        'cameras' => ['Cameras', null],
+                        'remote_view' => ['Remote viewing', ['1' => 'Yes', '0' => 'No']],
+                    ];
+                    foreach ($brief_fields as $bk => [$blabel, $bvalues]):
+                        if (!isset($b[$bk]) || $b[$bk] === '') continue;
+                        $bval = $bvalues[$b[$bk]] ?? ucfirst($b[$bk]); ?>
+                        <p><b><?php echo $blabel; ?>:</b> <?php echo nl2br(sanitize($bval)); ?></p>
+                    <?php endforeach; ?>
                     <?php if (!empty($b['references'])): ?><p><b>Likes:</b> <?php echo nl2br(sanitize($b['references'])); ?></p><?php endif; ?>
                 </div>
             <?php endif; ?>
@@ -136,9 +163,22 @@ include __DIR__ . '/../includes/header.php';
                 <form method="POST" action="proposals.php" class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                     <input type="hidden" name="proposal_id" value="<?php echo $p['id']; ?>">
+                    <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Title</label>
                         <input type="text" name="title" required value="<?php echo sanitize($p['title']); ?>" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Service</label>
+                        <select name="category" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                            <?php if (!service_by_label($p['category'])): ?>
+                                <option value="<?php echo sanitize($p['category']); ?>" selected><?php echo sanitize($p['category']); ?></option>
+                            <?php endif; ?>
+                            <?php foreach (SERVICE_CATALOG as $svc_opt): ?>
+                                <option value="<?php echo $svc_opt['label']; ?>" <?php echo strcasecmp($p['category'], $svc_opt['label']) === 0 ? 'selected' : ''; ?>><?php echo $svc_opt['label']; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
                         <div>

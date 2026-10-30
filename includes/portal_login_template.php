@@ -25,6 +25,7 @@ if (isset($_SESSION['user'])) {
         case 'STAFF': header("Location: " . BASE_URL . "/staff/index.php"); break;
         case 'STUDENT': header("Location: " . BASE_URL . "/student/index.php"); break;
         case 'CLIENT': header("Location: " . BASE_URL . "/client/index.php"); break;
+        case 'MARKETER': header("Location: " . BASE_URL . "/marketer/index.php"); break;
         default: header("Location: " . BASE_URL . "/login.php"); break;
     }
     exit();
@@ -33,6 +34,12 @@ if (isset($_SESSION['user'])) {
 $errors = [];
 $success_msg = "";
 $allow_register = defined('PORTAL_ALLOW_REGISTER') && PORTAL_ALLOW_REGISTER;
+// Visitors arriving through a marketer's link (?ref=CODE) are credited to that marketer when they register.
+$referrer = null;
+if ($allow_register) {
+    capture_referral_code($conn);
+    $referrer = pending_referral_marketer($conn);
+}
 $portal_word = explode(' ', PORTAL_NAME)[0];
 $portal_email_hint = strtolower($portal_word) . '@royalsolutions.com';
 
@@ -185,6 +192,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $conn->commit();
 
+                        if (PORTAL_ROLE === 'CLIENT' && ($ref = credit_client_referral($conn, $client_id, $email))) {
+                            send_notification($ref['id'], "New client signed up", "$first_name $last_name joined through your referral link. Your commission is recorded when one of their projects kicks off.", 'CRM', 'MEDIUM', '/marketer/index.php');
+                        }
+
                         $_SESSION['user'] = [
                             'id' => $user_id,
                             'email' => $email,
@@ -298,6 +309,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->close();
 
                         $conn->commit();
+
+                        if ($ref = credit_client_referral($conn, $client_id, $pending['email'])) {
+                            send_notification($ref['id'], "New client signed up", "$full_name joined through your referral link. Your commission is recorded when one of their projects kicks off.", 'CRM', 'MEDIUM', '/marketer/index.php');
+                        }
 
                         $_SESSION['user'] = [
                             'id' => $user_id,
@@ -594,6 +609,11 @@ $label_classes = "block text-sm font-medium mb-1.5 text-slate-700";
                             <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST" class="space-y-4">
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="action" value="signup_submit">
+                                <?php if ($referrer): ?>
+                                    <p class="text-xs text-slate-600 bg-[#F4F2EC] border border-[#E4DFD4] rounded-md px-3 py-2">
+                                        Referred by <strong><?php echo sanitize($referrer['first_name'] . ' ' . $referrer['last_name']); ?></strong>
+                                    </p>
+                                <?php endif; ?>
 
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
@@ -677,7 +697,7 @@ $label_classes = "block text-sm font-medium mb-1.5 text-slate-700";
             loginPane.classList.toggle('hidden', pane !== 'login');
             registerPane.classList.toggle('hidden', pane !== 'register');
         }
-        if (window.location.hash === '#register') showPortalPane('register');
+        if (window.location.hash === '#register' || <?php echo $referrer ? 'true' : 'false'; ?>) showPortalPane('register');
 
         // Password Toggle
         function togglePassword(id, btn) {

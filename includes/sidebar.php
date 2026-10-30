@@ -80,6 +80,10 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="kanban-square" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Project Workspace</span>
                 </a>
+                <a href="<?php echo BASE_URL; ?>/admin/marketers.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('marketers.php', $current_page); ?>">
+                    <i data-lucide="megaphone" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Marketers & Referrals</span>
+                </a>
                 <a href="<?php echo BASE_URL; ?>/admin/ledger.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('ledger.php', $current_page); ?>">
                     <i data-lucide="wallet" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Finance Ledger</span>
@@ -174,6 +178,22 @@ function is_menu_active($page_name, $current_page) {
                 <a href="<?php echo BASE_URL; ?>/client/meetings.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('meetings.php', $current_page); ?>">
                     <i data-lucide="video" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Meeting Schedule</span>
+                </a>
+            <?php elseif ($current_role === 'MARKETER'): ?>
+                <!-- Marketer Menu -->
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] px-3 pt-2 pb-2">Marketer Portal</p>
+
+                <a href="<?php echo BASE_URL; ?>/marketer/index.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('index.php', $current_page); ?>">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Dashboard & Clients</span>
+                </a>
+                <a href="<?php echo BASE_URL; ?>/marketer/students.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('students.php', $current_page); ?>">
+                    <i data-lucide="graduation-cap" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Student Referrals</span>
+                </a>
+                <a href="<?php echo BASE_URL; ?>/marketer/commissions.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('commissions.php', $current_page); ?>">
+                    <i data-lucide="wallet" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">My Commissions</span>
                 </a>
             <?php endif; ?>
 

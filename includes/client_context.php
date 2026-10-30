@@ -31,16 +31,6 @@ if (!$client) {
 
 $client_id = $client['id'];
 
-/** Notify every active admin/manager (used when a client needs staff attention). */
-function notify_admins($title, $message, $link = null)
-{
-    global $conn;
-    $res = $conn->query("SELECT id FROM users_admin WHERE role IN ('ADMIN','MANAGER') AND status = 'ACTIVE' LIMIT 5");
-    while ($row = $res->fetch_assoc()) {
-        send_notification($row['id'], $title, $message, 'CRM', 'HIGH', $link);
-    }
-}
-
 function csrf_ok()
 {
     return isset($_POST['csrf_token'], $_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);

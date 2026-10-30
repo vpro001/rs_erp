@@ -734,6 +734,8 @@ function init_database($conn)
   migrate_proposal_response_date($conn);
   migrate_project_proposal_link($conn);
   migrate_meeting_requests($conn);
+  migrate_marketers($conn);
+  migrate_service_categories($conn);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
   $check = $conn->query("SELECT COUNT(*) as count FROM users_admin WHERE id = 'u-admin-0001'");
@@ -832,6 +834,124 @@ function migrate_meeting_requests($conn)
   $row = $col ? $col->fetch_assoc() : null;
   if ($row && strpos($row['Type'], "'REQUESTED'") === false) {
     $conn->query("ALTER TABLE meetings MODIFY COLUMN status ENUM('REQUESTED','SCHEDULED','IN_PROGRESS','COMPLETED','CANCELLED','RESCHEDULED') DEFAULT 'SCHEDULED'");
+  }
+}
+
+/**
+ * Additive migration: marketers bring in clients (via their referral link) and students
+ * (submitted by name + email, confirmed by an admin), and earn a commission on each.
+ */
+function migrate_marketers($conn)
+{
+  $table = $conn->query("SHOW TABLES LIKE 'users_marketer'");
+  if ($table && $table->num_rows > 0) {
+    return;
+  }
+  // Fresh installs reach this before Phase 3 creates the rest of the schema; wait for the next request.
+  $clients = $conn->query("SHOW TABLES LIKE 'clients'");
+  if (!$clients || $clients->num_rows === 0) {
+    return;
+  }
+
+  // Marketers get their own credential/notification identity, like every other role family.
+  foreach (['profiles', 'user_settings', 'balances', 'sessions', 'activities', 'notifications'] as $t) {
+    $conn->query("ALTER TABLE `$t` MODIFY COLUMN user_type ENUM('STUDENT', 'CLIENT', 'STAFF', 'ADMIN', 'MARKETER') NOT NULL");
+  }
+
+  $col = $conn->query("SHOW COLUMNS FROM clients LIKE 'referred_by'");
+  if ($col && $col->num_rows === 0) {
+    $conn->query("ALTER TABLE clients ADD COLUMN referred_by VARCHAR(36) NULL, ADD INDEX idx_clients_referred_by (referred_by)");
+  }
+
+  $conn->query("CREATE TABLE IF NOT EXISTS users_marketer (
+          id VARCHAR(36) PRIMARY KEY,
+          email VARCHAR(191) UNIQUE NOT NULL,
+          username VARCHAR(191) UNIQUE NULL,
+          first_name VARCHAR(100) NOT NULL,
+          last_name VARCHAR(100) NOT NULL,
+          phone VARCHAR(20) NULL,
+          avatar VARCHAR(255) NULL,
+          status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION') DEFAULT 'ACTIVE',
+          role ENUM('MARKETER') DEFAULT 'MARKETER',
+          referral_code VARCHAR(50) UNIQUE NULL,
+          project_commission_rate DECIMAL(5,2) DEFAULT 10.00,
+          student_commission_rate DECIMAL(5,2) DEFAULT 10.00,
+          last_active DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          email_verified TINYINT(1) DEFAULT 0,
+          password_hash VARCHAR(255) NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+  $conn->query("CREATE TABLE IF NOT EXISTS marketer_student_referrals (
+          id VARCHAR(36) PRIMARY KEY,
+          marketer_id VARCHAR(36) NOT NULL,
+          full_name VARCHAR(200) NOT NULL,
+          email VARCHAR(191) NOT NULL,
+          phone VARCHAR(20) NULL,
+          course_id VARCHAR(36) NULL,
+          note TEXT NULL,
+          status ENUM('PENDING', 'CONFIRMED', 'REJECTED') DEFAULT 'PENDING',
+          review_note VARCHAR(255) NULL,
+          reviewed_by VARCHAR(36) NULL,
+          reviewed_at DATETIME NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_referral_email (email),
+          FOREIGN KEY (marketer_id) REFERENCES users_marketer(id) ON DELETE CASCADE,
+          FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+  // One commission per kicked-off project and per confirmed student referral (UNIQUE ignores NULLs).
+  $conn->query("CREATE TABLE IF NOT EXISTS marketer_commissions (
+          id VARCHAR(36) PRIMARY KEY,
+          marketer_id VARCHAR(36) NOT NULL,
+          source ENUM('PROJECT', 'STUDENT') NOT NULL,
+          project_id VARCHAR(36) NULL UNIQUE,
+          referral_id VARCHAR(36) NULL UNIQUE,
+          description VARCHAR(255) NOT NULL,
+          base_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+          rate DECIMAL(5,2) NULL,
+          amount DECIMAL(15,2) NOT NULL,
+          status ENUM('EARNED', 'PAID', 'CANCELLED') DEFAULT 'EARNED',
+          payout_ref VARCHAR(100) NULL,
+          paid_at DATETIME NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (marketer_id) REFERENCES users_marketer(id) ON DELETE CASCADE,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+          FOREIGN KEY (referral_id) REFERENCES marketer_student_referrals(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+}
+
+/**
+ * Additive migration: requests made before the service catalog (helpers.php SERVICE_CATALOG)
+ * stored the old onboarding labels; fold them into the current service names.
+ */
+function migrate_service_categories($conn)
+{
+  $map = [
+    'Business website (static / brochure)' => 'Website Design / Revamp',
+    'Website revamp / redesign' => 'Website Design / Revamp',
+    'E-commerce store' => 'Website Design / Revamp',
+    'Web application' => 'Web Application',
+    'Mobile app' => 'Mobile App',
+    'Something else' => 'Other',
+  ];
+  $in = "'" . implode("','", array_map([$conn, 'real_escape_string'], array_keys($map))) . "'";
+  foreach (['proposals', 'projects'] as $t) {
+    $table = $conn->query("SHOW TABLES LIKE '$t'");
+    if (!$table || $table->num_rows === 0) {
+      continue;
+    }
+    $stale = $conn->query("SELECT 1 FROM `$t` WHERE category IN ($in) LIMIT 1");
+    if (!$stale || $stale->num_rows === 0) {
+      continue;
+    }
+    $stmt = $conn->prepare("UPDATE `$t` SET category = ? WHERE category = ?");
+    foreach ($map as $old => $new) {
+      $stmt->bind_param("ss", $new, $old);
+      $stmt->execute();
+    }
+    $stmt->close();
   }
 }
 

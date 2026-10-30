@@ -84,13 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt->close();
             }
 
-            // Standard delivery milestones spread across the project window
-            $phases = [
-                ['Design & architecture', 0.25, 'Wireframes, prototype flows and system design signed off.'],
-                ['Core build', 0.55, 'Backend, database and main features working in staging.'],
-                ['Integrations & testing', 0.80, 'Third-party integrations, QA and fixes.'],
-                ['Launch & handover', 1.00, 'Deployment, training and project handover.'],
-            ];
+            // Standard delivery milestones for this kind of service, spread across the project window
+            $phases = (service_by_label($category) ?? SERVICE_CATALOG['other'])['milestones'];
             $span = $end_ts - $start_ts;
             foreach ($phases as [$m_title, $at, $m_desc]) {
                 $m_id = generate_uuid();
@@ -101,10 +96,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt->close();
             }
 
+            // A client brought in by a marketer earns them a commission on every project that kicks off
+            $commission = record_project_commission($conn, $project_id, $client_id, $budget, $title);
+
             $conn->commit();
+            if ($commission) {
+                send_notification($commission['marketer_id'], "Commission earned", "A client you referred kicked off '$title'. " . format_currency($commission['amount']) . " has been added to your earnings.", "FINANCE", "HIGH", "/marketer/commissions.php");
+            }
             send_notification($prop['client_user_id'], "Project kicked off", "Your project '$title' has been scheduled. Follow progress in your project workspace.", "CRM", "HIGH", "/client/projects.php?project_id=" . $project_id);
             log_activity("Initiated project from proposal", ["project_title" => $title]);
-            $success_msg = "Project workspace created with 4 standard milestones.";
+            $success_msg = "Project workspace created with " . count($phases) . " standard milestones." . ($commission ? " Marketer commission of " . format_currency($commission['amount']) . " recorded." : "");
         } catch (Exception $e) {
             $conn->rollback();
             $errors[] = "Initialization failed: " . $e->getMessage();
@@ -475,8 +476,13 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <div>
                 <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Category</label>
-                <input type="text" name="category" id="ep_category"
+                <input type="text" name="category" id="ep_category" list="service-categories"
                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-300">
+                <datalist id="service-categories">
+                    <?php foreach (SERVICE_CATALOG as $svc_opt): ?>
+                        <option value="<?= $svc_opt['label'] ?>">
+                    <?php endforeach; ?>
+                </datalist>
             </div>
             <div>
                 <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Budget (₦)</label>

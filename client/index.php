@@ -42,14 +42,14 @@ if ($unpaid['n'] > 0) {
 } elseif (!empty($proposal_counts['APPROVED'])) {
     $next = ['calendar-clock', 'bg-emerald-600', "Deposit received - we're scheduling your project", "A supervisor will be assigned and your project workspace will appear here.", 'View proposals', 'proposals.php'];
 } else {
-    $next = ['rocket', 'bg-indigo-600', "Need software built for your business?", "Websites, redesigns, web apps, mobile apps, internal systems - tell us what you need and get a quote from our team.", 'Request a project', 'onboarding.php'];
+    $next = ['rocket', 'bg-indigo-600', "What can we help you with?", implode(', ', array_column(array_slice(SERVICE_CATALOG, 0, -1), 'label')) . " - tell us what you need and get a quote from our team.", 'Request a project', 'onboarding.php'];
 }
 
 $steps = [
     ['Request', !empty($proposal_counts) || !empty($projects)],
     ['Quote', !empty($proposal_counts['PENDING']) || !empty($proposal_counts['APPROVED']) || !empty($projects)],
     ['Approve & pay', !empty($proposal_counts['APPROVED']) || !empty($projects)],
-    ['Build', !empty($projects)],
+    ['Work underway', !empty($projects)],
     ['Deliver', !empty($projects) && count(array_filter($projects, fn($p) => $p['status'] === 'COMPLETED')) > 0],
 ];
 

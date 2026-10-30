@@ -16,6 +16,7 @@ if (isset($_SESSION['user'])) {
         case 'STAFF': header("Location: " . BASE_URL . "/staff/index.php"); break;
         case 'STUDENT': header("Location: " . BASE_URL . "/student/index.php"); break;
         case 'CLIENT': header("Location: " . BASE_URL . "/client/index.php"); break;
+        case 'MARKETER': header("Location: " . BASE_URL . "/marketer/index.php"); break;
     }
     exit();
 }
@@ -133,6 +134,7 @@ if ($password === $user['password_hash']) {
                                 case 'STAFF': header("Location: " . BASE_URL . "/staff/index.php"); break;
                                 case 'STUDENT': header("Location: " . BASE_URL . "/student/index.php"); break;
                                 case 'CLIENT': header("Location: " . BASE_URL . "/client/index.php"); break;
+                                case 'MARKETER': header("Location: " . BASE_URL . "/marketer/index.php"); break;
                             }
                         }
                         exit();

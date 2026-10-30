@@ -8,6 +8,7 @@ $login_path = match ($user['role'] ?? '') {
     'ADMIN', 'MANAGER' => '/admin/login.php',
     'STAFF' => '/staff/login.php',
     'CLIENT' => '/client/login.php',
+    'MARKETER' => '/marketer/login.php',
     default => '/login.php',
 };
 if ($user) {

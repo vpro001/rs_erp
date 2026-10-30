@@ -11,7 +11,8 @@ $user_counts = [
     'STUDENT' => 0,
     'CLIENT' => 0,
     'STAFF' => 0,
-    'ADMIN' => 0
+    'ADMIN' => 0,
+    'MARKETER' => 0
 ];
 try {
     $parts = [];

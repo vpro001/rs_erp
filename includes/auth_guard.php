@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/db_connection.php';
 // Each portal has its own login page; send logged-out visitors to the one for the area they asked for.
 function portal_login_url($uri)
 {
-    foreach (['admin', 'staff', 'client'] as $portal) {
+    foreach (['admin', 'staff', 'client', 'marketer'] as $portal) {
         if (strpos($uri, "/$portal/") !== false) {
             return BASE_URL . "/$portal/login.php";
         }
@@ -88,6 +88,9 @@ if (!check_portal_access($user['role'], $current_uri)) {
             break;
         case 'CLIENT':
             header("Location: " . BASE_URL . "/client/index.php");
+            break;
+        case 'MARKETER':
+            header("Location: " . BASE_URL . "/marketer/index.php");
             break;
         default:
             header("Location: " . BASE_URL . "/login.php");

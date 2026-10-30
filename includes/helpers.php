@@ -232,11 +232,14 @@ function check_portal_access($role, $uri)
     if (strpos($uri, '/client/') !== false && $role !== 'CLIENT' && !in_array($role, ['ADMIN', 'MANAGER'])) {
         return false;
     }
+    if (strpos($uri, '/marketer/') !== false && $role !== 'MARKETER') {
+        return false;
+    }
     return true;
 }
 
 // Credentials live in one table per role family; ids are UUIDs so a lookup across all of them is unambiguous.
-const USER_TABLES = ['users_student', 'users_client', 'users_staff', 'users_admin'];
+const USER_TABLES = ['users_student', 'users_client', 'users_staff', 'users_admin', 'users_marketer'];
 
 /**
  * Credential table for a session role (MANAGER accounts live in users_admin).
@@ -251,6 +254,7 @@ function user_table_for_role($role)
         'CLIENT' => 'users_client',
         'STAFF' => 'users_staff',
         'ADMIN', 'MANAGER' => 'users_admin',
+        'MARKETER' => 'users_marketer',
         default => null,
     };
 }
@@ -366,6 +370,16 @@ function send_notification($user_id, $title, $message, $type = 'GENERAL', $prior
     }
 }
 
+/** Notify every active admin/manager (used when a client or marketer needs staff attention). */
+function notify_admins($title, $message, $link = null)
+{
+    global $conn;
+    $res = $conn->query("SELECT id FROM users_admin WHERE role IN ('ADMIN','MANAGER') AND status = 'ACTIVE' LIMIT 5");
+    while ($row = $res->fetch_assoc()) {
+        send_notification($row['id'], $title, $message, 'CRM', 'HIGH', $link);
+    }
+}
+
 /**
  * Set session message (flash messaging).
  *
@@ -449,3 +463,216 @@ function next_registration_number($conn, $year, $month)
     return $prefix . str_pad($max + 1, 3, '0', STR_PAD_LEFT);
 }
 
+
+/**
+ * What clients can engage us for. proposals.category / projects.category store the label.
+ * `milestones` are the delivery phases created at kickoff: [title, share of the project window, description].
+ */
+const SERVICE_CATALOG = [
+    'corporate_training' => [
+        'label' => 'Corporate Training',
+        'icon' => 'presentation',
+        'blurb' => 'Hands-on training for your staff or team, at your office, our centre or online.',
+        'milestones' => [
+            ['Training needs assessment', 0.15, 'Skills gap review with your team leads and agreed learning outcomes.'],
+            ['Curriculum & materials', 0.40, 'Course outline, slides, exercises and schedule signed off.'],
+            ['Training delivery', 0.85, 'Sessions delivered to all participants as scheduled.'],
+            ['Evaluation & certificates', 1.00, 'Participant assessment, feedback report and certificates issued.'],
+        ],
+    ],
+    'website' => [
+        'label' => 'Website Design / Revamp',
+        'icon' => 'globe',
+        'blurb' => 'A new business website, online store, or a redesign of the site you already have.',
+        'milestones' => [
+            ['Design & sitemap', 0.25, 'Page structure, look and feel approved.'],
+            ['Build & content', 0.65, 'Pages built and your content loaded on a preview link.'],
+            ['Review & revisions', 0.85, 'Your feedback applied, forms and SEO basics checked.'],
+            ['Launch & handover', 1.00, 'Site live on your domain, admin access and walkthrough handed over.'],
+        ],
+    ],
+    'web_app' => [
+        'label' => 'Web Application',
+        'icon' => 'app-window',
+        'blurb' => 'Custom software that runs in the browser: portals, dashboards, booking or management systems.',
+        'milestones' => [
+            ['Design & architecture', 0.25, 'Wireframes, prototype flows and system design signed off.'],
+            ['Core build', 0.55, 'Backend, database and main features working in staging.'],
+            ['Integrations & testing', 0.80, 'Third-party integrations, QA and fixes.'],
+            ['Launch & handover', 1.00, 'Deployment, training and project handover.'],
+        ],
+    ],
+    'mobile_app' => [
+        'label' => 'Mobile App',
+        'icon' => 'smartphone',
+        'blurb' => 'Android and/or iOS apps for your customers or staff.',
+        'milestones' => [
+            ['Design & prototype', 0.25, 'Screens and user flows approved on a clickable prototype.'],
+            ['Core build', 0.55, 'App, backend and main features working on test devices.'],
+            ['Testing & beta', 0.80, 'Device testing, fixes and a beta build for your team.'],
+            ['Store release & handover', 1.00, 'Published to Play Store / App Store and handed over.'],
+        ],
+    ],
+    'cctv' => [
+        'label' => 'CCTV Installation',
+        'icon' => 'cctv',
+        'blurb' => 'Security camera supply, installation and remote viewing for homes, offices and sites.',
+        'milestones' => [
+            ['Site survey & design', 0.20, 'Camera positions, cabling routes and equipment list agreed.'],
+            ['Equipment procurement', 0.45, 'Cameras, recorder, storage and accessories sourced.'],
+            ['Installation & cabling', 0.80, 'Cameras mounted, cabled and powered.'],
+            ['Configuration & handover', 1.00, 'Recording, remote viewing set up, tested, and your team shown how to use it.'],
+        ],
+    ],
+    'consultation' => [
+        'label' => 'IT Consultation',
+        'icon' => 'messages-square',
+        'blurb' => 'Expert advice on technology decisions, digital strategy, systems or infrastructure.',
+        'milestones' => [
+            ['Discovery session', 0.25, 'Kick-off meeting to understand your goals and current setup.'],
+            ['Assessment & analysis', 0.60, 'Review of systems, processes and options.'],
+            ['Recommendations report', 0.90, 'Written findings with a prioritised action plan.'],
+            ['Review meeting', 1.00, 'Walkthrough of recommendations and next steps.'],
+        ],
+    ],
+    'other' => [
+        'label' => 'Other',
+        'icon' => 'sparkles',
+        'blurb' => "Something not listed? Describe it and we'll tell you how we can help.",
+        'milestones' => [
+            ['Planning', 0.25, 'Scope, approach and schedule agreed.'],
+            ['Execution', 0.65, 'Main work carried out.'],
+            ['Review', 0.85, 'Your feedback applied.'],
+            ['Delivery & handover', 1.00, 'Final delivery and handover.'],
+        ],
+    ],
+];
+
+/**
+ * Catalog entry for a stored category label, or null for legacy/custom categories.
+ */
+function service_by_label($label)
+{
+    foreach (SERVICE_CATALOG as $key => $svc) {
+        if (strcasecmp($svc['label'], (string) $label) === 0) {
+            return $svc + ['key' => $key];
+        }
+    }
+    return null;
+}
+
+const REFERRAL_COOKIE = 'rs_ref';
+
+/**
+ * Active marketer owning a referral code.
+ *
+ * @return array|null
+ */
+function find_marketer_by_code($conn, $code)
+{
+    try {
+        $stmt = $conn->prepare("SELECT id, first_name, last_name, email FROM users_marketer WHERE referral_code = ? AND status = 'ACTIVE'");
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ?: null;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+/**
+ * Remember a marketer's ?ref= code for 30 days so the visitor's client signup is credited to them.
+ */
+function capture_referral_code($conn)
+{
+    $code = strtoupper(trim($_GET['ref'] ?? ''));
+    if ($code === '' || !preg_match('/^[A-Z0-9]{4,20}$/', $code) || !find_marketer_by_code($conn, $code)) {
+        return;
+    }
+    $_SESSION['referral_code'] = $code;
+    setcookie(REFERRAL_COOKIE, $code, ['expires' => time() + 30 * 86400, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+}
+
+/**
+ * Marketer whose referral link brought the current visitor, if any.
+ *
+ * @return array|null
+ */
+function pending_referral_marketer($conn)
+{
+    $code = $_SESSION['referral_code'] ?? ($_COOKIE[REFERRAL_COOKIE] ?? '');
+    return $code !== '' ? find_marketer_by_code($conn, strtoupper($code)) : null;
+}
+
+/**
+ * Credit a newly registered client to the marketer whose link they came through.
+ *
+ * @return array|null The crediting marketer
+ */
+function credit_client_referral($conn, $client_id, $client_email)
+{
+    $marketer = pending_referral_marketer($conn);
+    unset($_SESSION['referral_code']);
+    if (isset($_COOKIE[REFERRAL_COOKIE])) {
+        setcookie(REFERRAL_COOKIE, '', ['expires' => time() - 3600, 'path' => '/']);
+    }
+    if (!$marketer || strcasecmp($marketer['email'], $client_email) === 0) {
+        return null;
+    }
+    $stmt = $conn->prepare("UPDATE clients SET referred_by = ? WHERE id = ? AND referred_by IS NULL");
+    $stmt->bind_param("ss", $marketer['id'], $client_id);
+    $stmt->execute();
+    $stmt->close();
+    return $marketer;
+}
+
+/**
+ * Record the referring marketer's commission for a project that has just kicked off.
+ * Run inside the kickoff transaction; the rate is snapshotted from the marketer's current rate.
+ *
+ * @return array|null ['marketer_id' => ..., 'amount' => ...] when a commission was recorded
+ */
+function record_project_commission($conn, $project_id, $client_id, $budget, $title)
+{
+    $stmt = $conn->prepare("SELECT m.id, m.project_commission_rate FROM clients cl JOIN users_marketer m ON m.id = cl.referred_by WHERE cl.id = ?");
+    $stmt->bind_param("s", $client_id);
+    $stmt->execute();
+    $marketer = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$marketer) {
+        return null;
+    }
+
+    $rate = floatval($marketer['project_commission_rate']);
+    $amount = round($budget * $rate / 100, 2);
+    $id = generate_uuid();
+    $desc = "Project kickoff: $title";
+    $stmt = $conn->prepare("INSERT INTO marketer_commissions (id, marketer_id, source, project_id, description, base_amount, rate, amount) VALUES (?, ?, 'PROJECT', ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssddd", $id, $marketer['id'], $project_id, $desc, $budget, $rate, $amount);
+    $stmt->execute();
+    $stmt->close();
+    return ['marketer_id' => $marketer['id'], 'amount' => $amount];
+}
+
+/**
+ * Unused referral code like RS7F3A9C.
+ */
+function generate_referral_code($conn)
+{
+    do {
+        $code = 'RS' . strtoupper(bin2hex(random_bytes(3)));
+        $stmt = $conn->prepare("SELECT 1 FROM users_marketer WHERE referral_code = ?");
+        $stmt->bind_param("s", $code);
+        $stmt->execute();
+        $taken = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+    } while ($taken);
+    return $code;
+}
+
+function marketer_referral_link($code)
+{
+    return BASE_URL . '/client/login.php?ref=' . urlencode($code) . '#register';
+}

@@ -19,6 +19,9 @@ if ($user) {
         case 'CLIENT':
             header("Location: " . BASE_URL . "/client/index.php");
             break;
+        case 'MARKETER':
+            header("Location: " . BASE_URL . "/marketer/index.php");
+            break;
         default:
             header("Location: " . BASE_URL . "/login.php");
             break;
@@ -370,7 +373,7 @@ $clientUrl = BASE_URL . '/client/login.php';
                 <!-- Student / Staff / Admin -->
                 <div class="portal-card">
                     <div class="portal-icon"><i data-lucide="graduation-cap" class="icon" style="color:var(--navy);"></i></div>
-                    <span class="who">Students, staff & admin</span>
+                    <span class="who">Students</span>
                     <h2>Academic & internal access</h2>
                     <p class="desc">Courses, assignments, grades, certificates, and — for staff — scheduling, records and reports.</p>
                     <a href="<?php echo $loginUrl; ?>" class="btn btn-primary">
