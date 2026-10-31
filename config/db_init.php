@@ -736,6 +736,7 @@ function init_database($conn)
   migrate_meeting_requests($conn);
   migrate_marketers($conn);
   migrate_service_categories($conn);
+  migrate_clear_stock_avatars($conn);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
   $check = $conn->query("SELECT COUNT(*) as count FROM users_admin WHERE id = 'u-admin-0001'");
@@ -956,6 +957,21 @@ function migrate_service_categories($conn)
 }
 
 /**
+ * Data migration: demo accounts were seeded with stock Unsplash photos. Clear them
+ * so every user shows their own uploaded photo (profile.php) or an initials placeholder.
+ */
+function migrate_clear_stock_avatars($conn)
+{
+  foreach (['users_student', 'users_client', 'users_staff', 'users_admin', 'users_marketer'] as $t) {
+    $table = $conn->query("SHOW TABLES LIKE '$t'");
+    if (!$table || $table->num_rows === 0) {
+      continue;
+    }
+    $conn->query("UPDATE `$t` SET avatar = NULL WHERE avatar LIKE 'https://images.unsplash.com/%'");
+  }
+}
+
+/**
  * One-time additive migration: copy rows from the legacy shared `users` table
  * into the per-role credential tables. The legacy table is intentionally left
  * untouched until every module has been migrated to the split tables.
@@ -1001,7 +1017,7 @@ function seed_default_data($conn)
       'first_name' => 'Alexander',
       'last_name' => 'Vance',
       'phone' => '+1 (555) 019-2831',
-      'avatar' => 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop'
+      'avatar' => null
     ],
     [
       'id' => 'u-manager-0001',
@@ -1010,7 +1026,7 @@ function seed_default_data($conn)
       'first_name' => 'Eleanor',
       'last_name' => 'Sterling',
       'phone' => '+1 (555) 018-9921',
-      'avatar' => 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop'
+      'avatar' => null
     ]
   ];
 
@@ -1053,7 +1069,7 @@ function seed_default_data($conn)
       'first_name' => 'Marcus',
       'last_name' => 'Chen',
       'phone' => '+1 (555) 014-4482',
-      'avatar' => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop'
+      'avatar' => null
     ]
   ];
 
@@ -1096,7 +1112,7 @@ function seed_default_data($conn)
       'first_name' => 'Jane',
       'last_name' => 'Smith',
       'phone' => '+1 (555) 012-7711',
-      'avatar' => 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop'
+      'avatar' => null
     ]
   ];
 
@@ -1139,7 +1155,7 @@ function seed_default_data($conn)
       'first_name' => 'David',
       'last_name' => 'Miller',
       'phone' => '+1 (555) 016-5590',
-      'avatar' => 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop'
+      'avatar' => null
     ]
   ];
 

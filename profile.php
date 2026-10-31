@@ -31,53 +31,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("CSRF validation failed.");
     }
     
-    $first_name = sanitize($_POST['first_name'] ?? '');
-    $last_name = sanitize($_POST['last_name'] ?? '');
-    $phone = sanitize($_POST['phone'] ?? '');
-    $bio = sanitize($_POST['bio'] ?? '');
-    
-    if (empty($first_name) || empty($last_name)) {
-        $errors[] = "First name and Last name are required fields.";
+    $action = $_POST['action'] ?? 'details';
+    if ($action === 'avatar_upload' || $action === 'avatar_remove') {
+        $new_avatar = null;
+        if ($action === 'avatar_upload') {
+            $file = $_FILES['avatar'] ?? null;
+            $allowed_types = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
+            $info = ($file && $file['error'] === UPLOAD_ERR_OK) ? @getimagesize($file['tmp_name']) : false;
+            if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+                $errors[] = "Please choose an image to upload.";
+            } else if ($file['size'] > 2 * 1024 * 1024) { // 2MB limit
+                $errors[] = "Profile photos cannot exceed 2MB.";
+            } else if (!$info || !isset($allowed_types[$info[2]])) {
+                $errors[] = "Profile photo must be a JPG, PNG, WEBP or GIF image.";
+            } else {
+                $avatar_dir = __DIR__ . '/uploads/avatars';
+                if (!is_dir($avatar_dir)) {
+                    @mkdir($avatar_dir, 0755, true);
+                }
+                // File name is derived from the detected image type, never the client-supplied name
+                $new_file_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $user['id']) . '_' . uniqid() . '.' . $allowed_types[$info[2]];
+                if (move_uploaded_file($file['tmp_name'], $avatar_dir . '/' . $new_file_name)) {
+                    $new_avatar = '/uploads/avatars/' . $new_file_name;
+                } else {
+                    $errors[] = "Could not save the uploaded photo. Please try again.";
+                }
+            }
+        }
+
+        if (empty($errors)) {
+            $old_avatar = $profile['avatar'] ?? null;
+            $stmt = $conn->prepare("UPDATE `$user_table` SET avatar = ? WHERE id = ?");
+            $stmt->bind_param("ss", $new_avatar, $user['id']);
+            $stmt->execute();
+            $stmt->close();
+
+            // Remove the previous photo if it was one of our uploads
+            if ($old_avatar && str_starts_with($old_avatar, '/uploads/avatars/')) {
+                @unlink(__DIR__ . $old_avatar);
+            }
+
+            $_SESSION['user']['avatar'] = $new_avatar;
+            $user['avatar'] = $new_avatar;
+            $profile['avatar'] = $new_avatar;
+            log_activity($new_avatar ? "Updated profile photo" : "Removed profile photo");
+            $success_msg = $new_avatar ? "Your profile photo has been updated." : "Your profile photo has been removed.";
+        }
     } else {
-        $conn->begin_transaction();
-        try {
-            // Update the role's credential table
-            $stmt = $conn->prepare("UPDATE `$user_table` SET first_name = ?, last_name = ?, phone = ? WHERE id = ?");
-            $stmt->bind_param("ssss", $first_name, $last_name, $phone, $user['id']);
-            $stmt->execute();
-            $stmt->close();
+        $first_name = sanitize($_POST['first_name'] ?? '');
+        $last_name = sanitize($_POST['last_name'] ?? '');
+        $phone = sanitize($_POST['phone'] ?? '');
+        $bio = sanitize($_POST['bio'] ?? '');
+    
+        if (empty($first_name) || empty($last_name)) {
+            $errors[] = "First name and Last name are required fields.";
+        } else {
+            $conn->begin_transaction();
+            try {
+                // Update the role's credential table
+                $stmt = $conn->prepare("UPDATE `$user_table` SET first_name = ?, last_name = ?, phone = ? WHERE id = ?");
+                $stmt->bind_param("ssss", $first_name, $last_name, $phone, $user['id']);
+                $stmt->execute();
+                $stmt->close();
             
-            // Upsert profiles row (accounts created by admin have none yet)
-            $full_name = $first_name . ' ' . $last_name;
-            $profile_id = generate_uuid();
-            $user_type = $user['role'] === 'MANAGER' ? 'ADMIN' : $user['role'];
-            $stmt = $conn->prepare("INSERT INTO profiles (id, user_id, user_type, full_name, bio) VALUES (?, ?, ?, ?, ?)
-                                    ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), bio = VALUES(bio)");
-            $stmt->bind_param("sssss", $profile_id, $user['id'], $user_type, $full_name, $bio);
-            $stmt->execute();
-            $stmt->close();
+                // Upsert profiles row (accounts created by admin have none yet)
+                $full_name = $first_name . ' ' . $last_name;
+                $profile_id = generate_uuid();
+                $user_type = $user['role'] === 'MANAGER' ? 'ADMIN' : $user['role'];
+                $stmt = $conn->prepare("INSERT INTO profiles (id, user_id, user_type, full_name, bio) VALUES (?, ?, ?, ?, ?)
+                                        ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), bio = VALUES(bio)");
+                $stmt->bind_param("sssss", $profile_id, $user['id'], $user_type, $full_name, $bio);
+                $stmt->execute();
+                $stmt->close();
             
-            $conn->commit();
+                $conn->commit();
             
-            // Refresh session details
-            $_SESSION['user']['first_name'] = $first_name;
-            $_SESSION['user']['last_name'] = $last_name;
+                // Refresh session details
+                $_SESSION['user']['first_name'] = $first_name;
+                $_SESSION['user']['last_name'] = $last_name;
             
-            // Log activity
-            log_activity("Updated profile details", ["full_name" => $full_name]);
+                // Log activity
+                log_activity("Updated profile details", ["full_name" => $full_name]);
             
-            // Reload updated values
-            $profile['first_name'] = $first_name;
-            $profile['last_name'] = $last_name;
-            $profile['phone'] = $phone;
-            $profile['bio'] = $bio;
-            $profile['full_name'] = $full_name;
+                // Reload updated values
+                $profile['first_name'] = $first_name;
+                $profile['last_name'] = $last_name;
+                $profile['phone'] = $phone;
+                $profile['bio'] = $bio;
+                $profile['full_name'] = $full_name;
             
-            $success_msg = "Your profile has been updated successfully.";
+                $success_msg = "Your profile has been updated successfully.";
             
-        } catch (Exception $e) {
-            $conn->rollback();
-            $errors[] = "Error updating profile: " . $e->getMessage();
+            } catch (Exception $e) {
+                $conn->rollback();
+                $errors[] = "Error updating profile: " . $e->getMessage();
+            }
         }
     }
 }
@@ -88,12 +136,22 @@ include __DIR__ . '/includes/header.php';
 <div class="max-w-3xl mx-auto bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm">
     
     <div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-6 pb-6 border-b border-slate-200  mb-6">
-        <div class="relative group">
-            <img src="<?php echo $user['avatar'] ? sanitize($user['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'; ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-blue-500/20 shadow-md">
-            <div class="absolute inset-0 bg-slate-900/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                <i data-lucide="camera" class="w-6 h-6 text-white"></i>
-            </div>
-        </div>
+        <form action="profile.php" method="POST" enctype="multipart/form-data" class="flex flex-col items-center space-y-2">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+            <input type="hidden" name="action" value="avatar_upload">
+            <label for="avatar" class="relative group cursor-pointer" title="Change profile photo">
+                <img src="<?php echo sanitize(avatar_url($user['avatar'], ($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''))); ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-blue-500/20 shadow-md">
+                <div class="absolute inset-0 bg-slate-900/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="camera" class="w-6 h-6 text-white"></i>
+                </div>
+            </label>
+            <input type="file" name="avatar" id="avatar" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" onchange="this.form.submit()">
+            <?php if (!empty($user['avatar'])): ?>
+                <button type="submit" name="action" value="avatar_remove" class="text-xs text-slate-400 hover:text-red-500 transition-colors">Remove photo</button>
+            <?php else: ?>
+                <span class="text-xs text-slate-400">JPG, PNG, WEBP or GIF · max 2MB</span>
+            <?php endif; ?>
+        </form>
         <div>
             <h3 class="text-xl font-bold text-slate-900 "><?php echo sanitize($profile['full_name'] ?? ''); ?></h3>
             <span class="text-xs px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-600  font-semibold uppercase tracking-wider inline-block mt-1">

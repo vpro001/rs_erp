@@ -125,7 +125,7 @@ if ($user && isset($conn)) {
                     <?php if ($user): ?>
                         <div class="relative">
                             <button id="profile-toggle" class="flex items-center space-x-2 focus:outline-none">
-                                <img src="<?php echo $user['avatar'] ? sanitize($user['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'; ?>"
+                                <img src="<?php echo sanitize(avatar_url($user['avatar'], $user['first_name'] . ' ' . $user['last_name'])); ?>"
                                     alt="User Avatar"
                                     class="w-9 h-9 rounded-full object-cover border border-slate-200 hover:border-purple-400 hover:scale-105 transition-all duration-200 ">
                                 <div class="hidden md:block text-left">

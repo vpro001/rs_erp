@@ -234,7 +234,7 @@ include __DIR__ . '/../includes/header.php';
                         <div class="space-y-3">
                             <?php foreach ($team_members as $tm): ?>
                                 <div class="flex items-center space-x-2.5">
-                                    <img src="<?php echo $tm['avatar'] ? sanitize($tm['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop'; ?>" alt="Avatar" class="w-7 h-7 rounded-full object-cover">
+                                    <img src="<?php echo sanitize(avatar_url($tm['avatar'], $tm['first_name'] . ' ' . $tm['last_name'])); ?>" alt="Avatar" class="w-7 h-7 rounded-full object-cover">
                                     <div>
                                         <h5 class="text-xs font-bold text-slate-800 "><?php echo sanitize($tm['first_name'] . ' ' . $tm['last_name']); ?></h5>
                                         <p class="text-[9px] text-slate-405 leading-none mt-0.5"><?php echo sanitize($tm['role']); ?> &bull; <?php echo sanitize($tm['department']); ?></p>

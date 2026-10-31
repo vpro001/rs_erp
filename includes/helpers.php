@@ -53,6 +53,32 @@ function upload_url($path)
 }
 
 /**
+ * Avatar image URL for a user: their uploaded photo, or an initials placeholder.
+ *
+ * @param string|null $path Stored avatar path (users_*.avatar)
+ * @param string $name Display name used for the initials fallback
+ * @return string
+ */
+function avatar_url($path, $name = '')
+{
+    if (!empty($path)) {
+        return upload_url($path);
+    }
+    $initials = '';
+    foreach (preg_split('/\s+/', trim($name)) as $part) {
+        if ($part !== '' && strlen($initials) < 2) {
+            $initials .= strtoupper(mb_substr($part, 0, 1));
+        }
+    }
+    $initials = htmlspecialchars($initials ?: '?', ENT_QUOTES | ENT_XML1, 'UTF-8');
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        . '<rect width="100" height="100" fill="#6366f1"/>'
+        . '<text x="50" y="50" dy=".35em" text-anchor="middle" font-family="sans-serif" font-size="40" font-weight="600" fill="#fff">' . $initials . '</text>'
+        . '</svg>';
+    return 'data:image/svg+xml;base64,' . base64_encode($svg);
+}
+
+/**
  * Resolve asset URL safely.
  *
  * @param string|null $path

@@ -232,7 +232,7 @@ include __DIR__ . '/../includes/header.php';
             class="bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm space-y-4">
             <div class="flex justify-between items-start">
                 <div class="flex items-center space-x-3">
-                    <img src="<?php echo $active_post['avatar'] ? sanitize($active_post['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop'; ?>"
+                    <img src="<?php echo sanitize(avatar_url($active_post['avatar'], $active_post['first_name'] . ' ' . $active_post['last_name'])); ?>"
                         alt="Avatar" class="w-10 h-10 rounded-full object-cover">
                     <div>
                         <h4 class="text-xs font-bold text-slate-900 ">
@@ -305,7 +305,7 @@ include __DIR__ . '/../includes/header.php';
                     class="border rounded-2xl p-5 space-y-3 transition-all <?php echo $is_sol ? 'bg-emerald-500/5  border-emerald-500/40 shadow-sm' : 'bg-slate-50  border-slate-150 '; ?>">
                     <div class="flex justify-between items-start">
                         <div class="flex items-center space-x-2.5">
-                            <img src="<?php echo $rep['avatar'] ? sanitize($rep['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop'; ?>"
+                            <img src="<?php echo sanitize(avatar_url($rep['avatar'], $rep['first_name'] . ' ' . $rep['last_name'])); ?>"
                                 alt="Avatar" class="w-8 h-8 rounded-full object-cover">
                             <div>
                                 <div class="flex items-center space-x-2">
@@ -518,7 +518,7 @@ include __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
 
                             <div class="flex items-center space-x-2.5">
-                                <img src="<?php echo $p['avatar'] ? sanitize($p['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=100&auto=format&fit=crop'; ?>"
+                                <img src="<?php echo sanitize(avatar_url($p['avatar'], $p['first_name'] . ' ' . $p['last_name'])); ?>"
                                     alt="Avatar" class="w-7 h-7 rounded-full object-cover">
                                 <div>
                                     <span

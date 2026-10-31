@@ -216,7 +216,7 @@ function is_menu_active($page_name, $current_page) {
     <div class="relative z-10 p-3 border-t border-slate-100">
         <?php if ($user): ?>
         <div class="flex items-center space-x-3 mb-3 px-1">
-            <img src="<?php echo $user['avatar'] ? sanitize($user['avatar']) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'; ?>"
+            <img src="<?php echo sanitize(avatar_url($user['avatar'], $user['first_name'] . ' ' . $user['last_name'])); ?>"
                  alt="Avatar" class="w-8 h-8 rounded-full object-cover border border-slate-200 flex-shrink-0">
             <div class="min-w-0">
                 <p class="text-xs font-semibold text-slate-800  truncate leading-none"><?php echo sanitize($user['first_name'] . ' ' . $user['last_name']); ?></p>
