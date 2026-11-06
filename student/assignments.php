@@ -148,10 +148,16 @@ include __DIR__ . '/../includes/header.php';
                             <td class="py-4">
                                 <span class="font-bold text-slate-900  block text-sm"><?php echo sanitize($a['title']); ?></span>
                                 <span class="text-[10px] text-slate-400 mt-0.5 block"><?php echo sanitize($a['course_title']); ?></span>
+                                <?php if (!empty($a['description'])): ?>
+                                    <details class="mt-1 max-w-md">
+                                        <summary class="text-[10px] font-semibold text-blue-600 cursor-pointer">Instructions</summary>
+                                        <p class="text-[11px] text-slate-600 whitespace-pre-line mt-1"><?php echo sanitize($a['description']); ?></p>
+                                    </details>
+                                <?php endif; ?>
                             </td>
                             
                             <td class="py-4 text-slate-500  font-semibold">
-                                <?php echo date('M d, Y - H:i', strtotime($a['due_date'])); ?>
+                                <?php echo $a['due_date'] ? date('M d, Y - H:i', strtotime($a['due_date'])) : 'No deadline'; ?>
                             </td>
                             
                             <td class="py-4">
@@ -161,7 +167,7 @@ include __DIR__ . '/../includes/header.php';
                                     if ($status === 'GRADED') $badge_class = 'bg-emerald-500/10 text-emerald-600 ';
                                     else if ($status === 'SUBMITTED') $badge_class = 'bg-blue-500/10 text-blue-600 ';
                                     else if ($status === 'PENDING') {
-                                        if (strtotime($a['due_date']) < time()) {
+                                        if ($a['due_date'] && strtotime($a['due_date']) < time()) {
                                             $status = 'OVERDUE';
                                             $badge_class = 'bg-red-500/10 text-red-600 ';
                                         } else {

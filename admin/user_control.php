@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     throw new Exception("Invalid course.");
                 }
                 
-                $price = floatval($course_data['price']);
+                $price = posted_agreed_fee($course_data['price']);
                 $amount_due = max(0, $price - $total_paid);
                 [$batch_id, $start_date, $end_date] = resolve_enrollment_schedule($conn, $course_id);
 
@@ -91,8 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $conn->begin_transaction();
                 try {
                     $student_pk = student_record_id($conn, $target_user_id);
-                    $stmt = $conn->prepare("INSERT INTO enrollments (id, student_id, course_id, enrollment_date, status, payment_type, total_paid, amount_due, batch_id, start_date, end_date) VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("sssssddsss", $id, $student_pk, $course_id, $enrollment_date, $payment_type, $total_paid, $amount_due, $batch_id, $start_date, $end_date);
+                    $stmt = $conn->prepare("INSERT INTO enrollments (id, student_id, course_id, enrollment_date, status, payment_type, agreed_fee, total_paid, amount_due, batch_id, start_date, end_date) VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("sssssdddsss", $id, $student_pk, $course_id, $enrollment_date, $payment_type, $price, $total_paid, $amount_due, $batch_id, $start_date, $end_date);
                     $stmt->execute();
                     $stmt->close();
                     sync_batch_roster($conn, $student_pk, $course_id, $batch_id);
@@ -478,6 +478,11 @@ include __DIR__ . '/../includes/header.php';
                     <input type="datetime-local" name="enrollment_date" value="<?php echo date('Y-m-d\TH:i'); ?>" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
                 </div>
                 
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Agreed Fee (negotiated price)</label>
+                    <input type="number" step="0.01" min="0" name="agreed_fee" placeholder="Leave blank to use the course price" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Payment Type</label>
@@ -548,7 +553,8 @@ include __DIR__ . '/../includes/header.php';
                                 </div>
 
                                 <div class="flex items-center space-x-3">
-                                    <a href="<?php echo BASE_URL; ?>/student/admission_letter.php?enrollment_id=<?php echo $te['id']; ?>" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">View letter</a>
+                                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $te['id']; ?>" target="_blank" class="text-[10px] font-bold text-blue-600 hover:underline">View letter</a>
+                                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $te['id']; ?>&download=pdf" class="text-[10px] font-bold text-slate-600 hover:underline">PDF</a>
                                     <form action="user_control.php?view_user_id=<?php echo $target_user_info['id']; ?>" method="POST">
                                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                         <input type="hidden" name="action" value="send_admission_letter">

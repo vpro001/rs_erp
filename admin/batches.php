@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/../includes/admission_letter.php';
+require_permission('students.manage'); // shared with Customer Service via staff/batches.php
 
 $user = current_user();
 $page_title = "Class Batches";
@@ -12,6 +13,22 @@ $page_title = "Class Batches";
 $errors = [];
 $success_msg = "";
 const BATCH_STATUSES = ['ACTIVE', 'INACTIVE', 'COMPLETED', 'CANCELLED'];
+
+/** Make the batch's instructors exactly $staff_ids (instructor staff only). */
+function set_batch_instructors($conn, $batch_id, $staff_ids)
+{
+    $stmt = $conn->prepare("DELETE FROM class_staff WHERE class_id = ?");
+    $stmt->bind_param("s", $batch_id);
+    $stmt->execute();
+    $stmt->close();
+    foreach ($staff_ids as $sid) {
+        $id = generate_uuid();
+        $stmt = $conn->prepare("INSERT INTO class_staff (id, class_id, staff_id, role) SELECT ?, ?, id, 'Instructor' FROM staff WHERE id = ? AND staff_role = 'INSTRUCTOR'");
+        $stmt->bind_param("sss", $id, $batch_id, $sid);
+        $stmt->execute();
+        $stmt->close();
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
@@ -51,13 +68,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $stmt->close();
 
-            log_activity("Admin created class batch", ["batch_id" => $id, "course_id" => $course_id]);
+            set_batch_instructors($conn, $id, array_map('sanitize', (array) ($_POST['instructor_ids'] ?? [])));
+            log_activity("Created class batch", ["batch_id" => $id, "course_id" => $course_id]);
             $success_msg = "Batch created successfully.";
         } else {
             $stmt = $conn->prepare("UPDATE classes SET name = ?, description = ?, start_date = ?, end_date = ?, capacity = ?, status = ? WHERE id = ?");
             $stmt->bind_param("ssssiss", $name, $description, $start_date, $end_date, $capacity, $status, $batch_id);
             $stmt->execute();
             $stmt->close();
+            set_batch_instructors($conn, $batch_id, array_map('sanitize', (array) ($_POST['instructor_ids'] ?? [])));
             $success_msg = "Batch updated successfully.";
 
             if (isset($_POST['apply_to_students'])) {
@@ -104,6 +123,12 @@ if ($filter_course !== '') $stmt->bind_param("s", $filter_course);
 $stmt->execute();
 $batches = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+$instructors = $conn->query("SELECT s.id, u.first_name, u.last_name FROM staff s JOIN users_staff u ON u.id = s.user_id WHERE s.staff_role = 'INSTRUCTOR' AND u.status = 'ACTIVE' ORDER BY u.first_name")->fetch_all(MYSQLI_ASSOC);
+$batch_instructors = [];
+foreach ($conn->query("SELECT cs.class_id, s.id, u.first_name, u.last_name FROM class_staff cs JOIN staff s ON s.id = cs.staff_id JOIN users_staff u ON u.id = s.user_id") as $r) {
+    $batch_instructors[$r['class_id']][$r['id']] = $r['first_name'] . ' ' . $r['last_name'];
+}
 
 $edit = null;
 $edit_id = sanitize($_GET['edit'] ?? '');
@@ -193,6 +218,21 @@ include __DIR__ . '/../includes/header.php';
                     <label class="<?php echo $label; ?>">Description</label>
                     <textarea name="description" rows="2" class="<?php echo $input; ?>"><?php echo $val('description'); ?></textarea>
                 </div>
+                <div>
+                    <label class="<?php echo $label; ?>">Instructor(s)</label>
+                    <?php if (!$instructors): ?>
+                        <p class="text-[10px] text-slate-400">No active instructors yet<?php echo is_admin_user() ? ' (create them under <a href="staff.php" class="text-blue-600 hover:underline">Staff Management</a>)' : ''; ?>.</p>
+                    <?php else: $current = $edit ? array_keys($batch_instructors[$edit['id']] ?? []) : (array) ($_POST['instructor_ids'] ?? []); ?>
+                        <div class="max-h-32 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1 bg-slate-50">
+                            <?php foreach ($instructors as $in): ?>
+                                <label class="flex items-center gap-2 text-xs text-slate-700">
+                                    <input type="checkbox" name="instructor_ids[]" value="<?php echo $in['id']; ?>" <?php echo in_array($in['id'], $current, true) ? 'checked' : ''; ?>>
+                                    <span><?php echo sanitize($in['first_name'] . ' ' . $in['last_name']); ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
                 <?php if ($edit && $edit['enrolled'] > 0): ?>
                     <div class="p-3 bg-amber-50/50 border border-amber-200/60 rounded-lg space-y-2 text-xs text-slate-600">
@@ -254,7 +294,10 @@ include __DIR__ . '/../includes/header.php';
                             <tr class="<?php echo $b['id'] === $edit_id ? 'bg-blue-500/5' : ''; ?>">
                                 <td class="py-3">
                                     <span class="font-bold text-slate-900 block"><?php echo letter_e($b['name']); ?></span>
-                                    <span class="text-[10px] text-slate-400"><?php echo letter_e($b['course_title']); ?></span>
+                                    <span class="text-[10px] text-slate-400 block"><?php echo letter_e($b['course_title']); ?></span>
+                                    <span class="text-[10px] <?php echo empty($batch_instructors[$b['id']]) ? 'text-amber-600' : 'text-cyan-700'; ?>">
+                                        <?php echo empty($batch_instructors[$b['id']]) ? 'No instructor' : 'Instructor: ' . sanitize(implode(', ', $batch_instructors[$b['id']])); ?>
+                                    </span>
                                 </td>
                                 <td class="py-3"><?php echo $b['start_date'] ? date('d M Y', strtotime($b['start_date'])) : '-'; ?></td>
                                 <td class="py-3"><?php echo $b['end_date'] ? date('d M Y', strtotime($b['end_date'])) : '-'; ?></td>

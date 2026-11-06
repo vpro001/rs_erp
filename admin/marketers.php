@@ -3,6 +3,7 @@
 // Project commissions are recorded automatically at kickoff (admin/project_control.php).
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_permission('marketers'); // shared with Marketing & Sales staff via staff/marketers.php
 
 $user = current_user();
 $page_title = "Marketers & Referrals";
@@ -228,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $tab = 'commissions';
         }
 
-        header("Location: " . BASE_URL . "/admin/marketers.php?tab=$tab");
+        header("Location: marketers.php?tab=$tab"); // relative: works from admin/ and staff/
         exit();
     } catch (Exception $e) {
         $errors[] = $e->getMessage();

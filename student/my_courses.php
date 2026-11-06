@@ -130,10 +130,15 @@ include __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="p-5 pt-0 flex items-center justify-between">
-                    <a href="<?php echo BASE_URL; ?>/student/admission_letter.php?enrollment_id=<?php echo $c['enrollment_id']; ?>" target="_blank"
+                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $c['enrollment_id']; ?>" target="_blank"
                         class="text-xs font-semibold text-blue-600 hover:underline flex items-center space-x-1">
                         <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
                         <span>Admission Letter</span>
+                    </a>
+                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $c['enrollment_id']; ?>&download=pdf"
+                        class="text-xs font-semibold text-slate-600 hover:underline flex items-center space-x-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>PDF</span>
                     </a>
                     <a href="<?php echo BASE_URL; ?>/student/learning_view.php?course_id=<?php echo $c['id']; ?>"
                         class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl flex items-center space-x-1.5 transition-all shadow-md shadow-blue-500/10">

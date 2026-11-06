@@ -3,6 +3,7 @@
 // Student management: Create, Read, Update, Delete (CRUD) with full modal UI.
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_permission('students.manage'); // shared with Customer Service via staff/students.php
 
 $user       = current_user();
 $page_title = "Student Management";

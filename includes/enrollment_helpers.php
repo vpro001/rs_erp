@@ -1,6 +1,6 @@
 <?php
 // includes/enrollment_helpers.php
-// Shared by admin/user_control.php and admin/enrollments.php.
+// Shared by admin/user_control.php and admin/enrollments.php (also used by staff via wrappers).
 
 // enrollments/payments reference students.id, not the login id; create the record on first use.
 function student_record_id($conn, $user_id)
@@ -68,4 +68,13 @@ function sync_batch_roster($conn, $student_pk, $course_id, $batch_id)
         $stmt->execute();
         $stmt->close();
     }
+}
+
+/** Posted negotiated fee, defaulting to the course list price when left blank. */
+function posted_agreed_fee($list_price)
+{
+    $raw = trim($_POST['agreed_fee'] ?? '');
+    if ($raw === '') return round(floatval($list_price), 2);
+    if (!is_numeric($raw) || floatval($raw) < 0) throw new Exception("Enter a valid agreed fee (0 or more).");
+    return round(floatval($raw), 2);
 }

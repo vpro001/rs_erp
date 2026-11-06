@@ -1,10 +1,13 @@
 <?php
 // admin/enrollments.php
 // Register students to courses and manage each enrollment: start/end dates, batch,
-// status, payment plan (full / installment), installment schedule and payments.
+// status, negotiated fee, payment plan (full / installment), installment schedule and payments.
+// Shared with Customer Service staff via staff/enrollments.php.
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/../includes/enrollment_helpers.php';
+require_once __DIR__ . '/../includes/admission_letter.php';
+require_permission('students.manage');
 
 $user = current_user();
 $page_title = "Course Enrollments";
@@ -40,6 +43,17 @@ function create_installment_schedule($conn, $enrollment_id, $price, $count, $sta
         $stmt->execute();
         $stmt->close();
     }
+}
+
+/** Replace the installment schedule so it splits $fee into $count parts (payments already made stay on record). */
+function rebuild_installment_schedule($conn, $enrollment_id, $fee, $count, $start)
+{
+    $stmt = $conn->prepare("DELETE FROM installment_payments WHERE enrollment_id = ?");
+    $stmt->bind_param("s", $enrollment_id);
+    $stmt->execute();
+    $stmt->close();
+    create_installment_schedule($conn, $enrollment_id, $fee, $count, $start);
+    sync_installments($conn, $enrollment_id);
 }
 
 /** Mark installments PAID in order as far as the enrollment's total_paid covers them. */
@@ -129,16 +143,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($course['status'] !== 'ACTIVE') throw new Exception("This course is not active.");
             if ($payment_type === 'INSTALLMENT' && !$course['allow_installment']) throw new Exception("This course does not allow installment payments.");
 
-            $price = floatval($course['price']);
-            if ($initial > $price + 0.005) throw new Exception("Initial payment cannot exceed the course price.");
+            $price = posted_agreed_fee($course['price']);
+            if ($initial > $price + 0.005) throw new Exception("Initial payment cannot exceed the agreed fee.");
             $count = max(1, intval($_POST['installment_count'] ?? 0) ?: intval($course['installment_count']) ?: 2);
 
             [$batch_id, $start, $end] = resolve_enrollment_schedule($conn, $course_id);
 
             $id = generate_uuid();
             try {
-                $stmt = $conn->prepare("INSERT INTO enrollments (id, student_id, course_id, enrollment_date, status, payment_type, total_paid, amount_due, batch_id, start_date, end_date) VALUES (?, ?, ?, NOW(), 'ACTIVE', ?, 0, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssdsss", $id, $student_pk, $course_id, $payment_type, $price, $batch_id, $start, $end);
+                $stmt = $conn->prepare("INSERT INTO enrollments (id, student_id, course_id, enrollment_date, status, payment_type, agreed_fee, total_paid, amount_due, batch_id, start_date, end_date) VALUES (?, ?, ?, NOW(), 'ACTIVE', ?, ?, 0, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssddsss", $id, $student_pk, $course_id, $payment_type, $price, $price, $batch_id, $start, $end);
                 $stmt->execute();
                 $stmt->close();
             } catch (mysqli_sql_exception $e) {
@@ -150,8 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 record_enrollment_payment($conn, load_enrollment($conn, $id), $initial, $method, 'Payment at registration');
                 if ($payment_type === 'INSTALLMENT') sync_installments($conn, $id);
             }
-            log_activity("Admin registered student to course", ["enrollment_id" => $id, "course_id" => $course_id, "student_id" => $student_pk]);
+            log_activity("Registered student to course", ["enrollment_id" => $id, "course_id" => $course_id, "student_id" => $student_pk, "agreed_fee" => $price]);
             $success_msg = "Student registered to course.";
+            $letter_for = $id; // admission letter is generated and emailed once the enrollment is committed
 
         } elseif ($action === 'update') {
             $enr = load_enrollment($conn, sanitize($_POST['enrollment_id'] ?? ''));
@@ -159,11 +174,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $payment_type = ($_POST['payment_type'] ?? '') === 'INSTALLMENT' ? 'INSTALLMENT' : 'FULL';
             [$batch_id, $start, $end] = resolve_enrollment_schedule($conn, $enr['course_id'], $enr['id']);
 
-            $stmt = $conn->prepare("UPDATE enrollments SET status = ?, payment_type = ?, batch_id = ?, start_date = ?, end_date = ? WHERE id = ?");
-            $stmt->bind_param("ssssss", $status, $payment_type, $batch_id, $start, $end, $enr['id']);
+            $old_fee = floatval($enr['agreed_fee'] ?? (floatval($enr['total_paid']) + floatval($enr['amount_due'])));
+            $fee = posted_agreed_fee($old_fee);
+            $fee_changed = abs($fee - $old_fee) > 0.005;
+            if ($fee + 0.005 < floatval($enr['total_paid'])) throw new Exception("Agreed fee cannot be less than the " . format_currency($enr['total_paid']) . " already paid.");
+            $due = round(max(0, $fee - floatval($enr['total_paid'])), 2);
+
+            $stmt = $conn->prepare("UPDATE enrollments SET status = ?, payment_type = ?, batch_id = ?, start_date = ?, end_date = ?, agreed_fee = ?, amount_due = ? WHERE id = ?");
+            $stmt->bind_param("sssssdds", $status, $payment_type, $batch_id, $start, $end, $fee, $due, $enr['id']);
             $stmt->execute();
             $stmt->close();
             sync_batch_roster($conn, $enr['student_id'], $enr['course_id'], $batch_id);
+            if ($fee_changed && $due > 0.005 && !empty($enr['payment_certified_at'])) {
+                // A raised fee re-opens the balance, so the earlier "paid in full" certification no longer holds.
+                $stmt = $conn->prepare("UPDATE enrollments SET payment_certified_at = NULL, payment_certified_by = NULL WHERE id = ?");
+                $stmt->bind_param("s", $enr['id']);
+                $stmt->execute();
+                $stmt->close();
+            }
+            if ($fee_changed && $payment_type === 'INSTALLMENT' && $enr['payment_type'] === 'INSTALLMENT') {
+                $stmt = $conn->prepare("SELECT COUNT(*) AS n FROM installment_payments WHERE enrollment_id = ? AND status <> 'CANCELLED'");
+                $stmt->bind_param("s", $enr['id']);
+                $stmt->execute();
+                $count = max(1, intval($_POST['installment_count'] ?? 0) ?: intval($stmt->get_result()->fetch_assoc()['n']) ?: 2);
+                $stmt->close();
+                rebuild_installment_schedule($conn, $enr['id'], $fee, $count, $start);
+            }
 
             if ($payment_type !== $enr['payment_type']) {
                 if ($payment_type === 'INSTALLMENT') {
@@ -173,14 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $course = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
                     if (!$course['allow_installment']) throw new Exception("This course does not allow installment payments.");
-                    $stmt = $conn->prepare("DELETE FROM installment_payments WHERE enrollment_id = ?");
-                    $stmt->bind_param("s", $enr['id']);
-                    $stmt->execute();
-                    $stmt->close();
                     $count = max(1, intval($_POST['installment_count'] ?? 0) ?: intval($course['installment_count']) ?: 2);
-                    // Schedule only the unpaid balance; payments already made stay on record.
-                    create_installment_schedule($conn, $enr['id'], floatval($enr['total_paid']) + floatval($enr['amount_due']), $count, $start);
-                    sync_installments($conn, $enr['id']);
+                    // Schedule the full agreed fee; installments already covered by payments are marked PAID.
+                    rebuild_installment_schedule($conn, $enr['id'], $fee, $count, $start);
                 } else {
                     $stmt = $conn->prepare("UPDATE installment_payments SET status = 'CANCELLED' WHERE enrollment_id = ? AND status <> 'PAID'");
                     $stmt->bind_param("s", $enr['id']);
@@ -188,8 +219,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt->close();
                 }
             }
-            log_activity("Admin updated enrollment", ["enrollment_id" => $enr['id']]);
-            $success_msg = "Enrollment updated.";
+            log_activity("Updated enrollment", ["enrollment_id" => $enr['id'], "agreed_fee" => $fee]);
+            $success_msg = "Enrollment updated." . ($fee_changed ? " Agreed fee is now " . format_currency($fee) . ", balance " . format_currency($due) . "." : "");
 
         } elseif ($action === 'pay') {
             $enr = load_enrollment($conn, sanitize($_POST['enrollment_id'] ?? ''));
@@ -201,6 +232,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($enr['payment_type'] === 'INSTALLMENT') sync_installments($conn, $enr['id']);
             log_activity("Admin recorded course payment", ["enrollment_id" => $enr['id'], "amount" => $amount]);
             $success_msg = "Payment of " . format_currency($amount) . " recorded.";
+
+        } elseif ($action === 'send_letter') {
+            $enr = load_enrollment($conn, sanitize($_POST['enrollment_id'] ?? ''));
+            $letter_for = $enr['id'];
 
         } elseif ($action === 'delete') {
             $enr = load_enrollment($conn, sanitize($_POST['enrollment_id'] ?? ''));
@@ -217,6 +252,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             throw new Exception("Unknown action.");
         }
         $conn->commit();
+        if (!empty($letter_for)) {
+            $result = send_admission_letter($conn, $letter_for);
+            $success_msg = trim($success_msg . " " . admission_send_summary($result));
+            if ($result['ok']) log_activity("Sent admission letter", ["enrollment_id" => $letter_for]);
+        }
     } catch (Exception $e) {
         $conn->rollback();
         $errors[] = $e->getMessage();
@@ -239,7 +279,8 @@ $f_course = sanitize($_GET['course'] ?? '');
 $f_status = in_array($_GET['status'] ?? '', ENROLLMENT_STATUSES, true) ? $_GET['status'] : '';
 $f_q = trim($_GET['q'] ?? '');
 $sql = "SELECT e.*, c.title AS course_title, c.price, c.allow_installment, b.name AS batch_name,
-               s.student_id AS reg_no, u.first_name, u.last_name
+               COALESCE(e.agreed_fee, e.total_paid + e.amount_due) AS fee,
+               s.student_id AS reg_no, u.first_name, u.last_name, u.email, u.phone
         FROM enrollments e
         JOIN courses c ON c.id = e.course_id
         JOIN students s ON s.id = e.student_id
@@ -329,7 +370,7 @@ include __DIR__ . '/../includes/header.php';
                     <select name="course_id" id="reg-course" required class="<?php echo $input; ?>">
                         <option value="">Select course...</option>
                         <?php foreach ($courses as $c): ?>
-                            <option value="<?php echo $c['id']; ?>" data-installment="<?php echo (int) $c['allow_installment']; ?>" data-count="<?php echo (int) $c['installment_count']; ?>"><?php echo sanitize($c['title']) . ' - ' . format_currency($c['price']); ?></option>
+                            <option value="<?php echo $c['id']; ?>" data-price="<?php echo $c['price']; ?>" data-installment="<?php echo (int) $c['allow_installment']; ?>" data-count="<?php echo (int) $c['installment_count']; ?>"><?php echo sanitize($c['title']) . ' - ' . format_currency($c['price']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -340,6 +381,11 @@ include __DIR__ . '/../includes/header.php';
                 <div class="grid grid-cols-2 gap-3">
                     <div><label class="<?php echo $label; ?>">Start date</label><input type="date" name="start_date" id="reg-start" required class="<?php echo $input; ?>"></div>
                     <div><label class="<?php echo $label; ?>">End date</label><input type="date" name="end_date" id="reg-end" required class="<?php echo $input; ?>"></div>
+                </div>
+                <div>
+                    <label class="<?php echo $label; ?>">Agreed fee (negotiated price)</label>
+                    <input type="number" step="0.01" min="0" name="agreed_fee" id="reg-fee" placeholder="Course price" class="<?php echo $input; ?>">
+                    <p class="text-[9px] text-slate-400 mt-1" id="reg-fee-hint">Defaults to the course price. Enter the final negotiated amount if different.</p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -363,7 +409,7 @@ include __DIR__ . '/../includes/header.php';
                         </select>
                     </div>
                 </div>
-                <p class="text-[9px] text-slate-400">Installments split the course price equally, due monthly from the start date.</p>
+                <p class="text-[9px] text-slate-400">Installments split the agreed fee equally, due monthly from the start date. The admission letter (with PDF) is generated and emailed to the student automatically.</p>
                 <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl text-xs">Register Student</button>
             </form>
         </div>
@@ -389,7 +435,8 @@ include __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <?php foreach ($enrollments as $e):
-            $fee = floatval($e['total_paid']) + floatval($e['amount_due']);
+            $fee = floatval($e['fee']);
+            $negotiated = abs($fee - floatval($e['price'])) > 0.005;
             $settled = floatval($e['amount_due']) <= 0.005;
         ?>
             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
@@ -405,6 +452,8 @@ include __DIR__ . '/../includes/header.php';
                         <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold"><?php echo $e['status']; ?></span>
                         <span class="block text-[9px] font-bold <?php echo $settled ? 'text-emerald-600' : 'text-amber-600'; ?>"><?php echo $e['payment_type']; ?> &bull; <?php echo $settled ? 'PAID IN FULL' : 'BALANCE ' . format_currency($e['amount_due']); ?></span>
                         <span class="block text-[9px] text-slate-400">Paid <?php echo format_currency($e['total_paid']); ?> of <?php echo format_currency($fee); ?></span>
+                        <?php if ($negotiated): ?><span class="block text-[9px] text-indigo-600 font-semibold">Negotiated (list <?php echo format_currency($e['price']); ?>)</span><?php endif; ?>
+                        <?php if (!empty($e['payment_certified_at'])): ?><span class="block text-[9px] text-emerald-700 font-bold">PAYMENT CERTIFIED</span><?php endif; ?>
                     </div>
                 </div>
 
@@ -416,6 +465,19 @@ include __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
+
+                <div class="flex flex-wrap items-center gap-3 text-[10px] font-bold">
+                    <span class="text-slate-500 font-semibold">Admission letter:</span>
+                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $e['id']; ?>" target="_blank" class="text-blue-600 hover:underline">View</a>
+                    <a href="<?php echo BASE_URL; ?>/admission_letter.php?enrollment_id=<?php echo $e['id']; ?>&download=pdf" class="text-blue-600 hover:underline">Download PDF</a>
+                    <form method="POST" class="inline">
+                        <?php echo $csrf; ?>
+                        <input type="hidden" name="action" value="send_letter">
+                        <input type="hidden" name="enrollment_id" value="<?php echo $e['id']; ?>">
+                        <button class="text-emerald-600 hover:underline"><?php echo $e['admission_sent_at'] ? 'Re-send email' : 'Email to student'; ?></button>
+                    </form>
+                    <?php if ($e['admission_sent_at']): ?><span class="font-normal text-slate-400">sent <?php echo date('d M Y', strtotime($e['admission_sent_at'])); ?></span><?php endif; ?>
+                </div>
 
                 <div class="flex flex-wrap gap-4 text-[10px] font-bold">
                     <?php if (!$settled): ?>
@@ -444,6 +506,10 @@ include __DIR__ . '/../includes/header.php';
                                 <input type="date" name="start_date" value="<?php echo $e['start_date']; ?>" required class="<?php echo $input; ?>">
                                 <input type="date" name="end_date" value="<?php echo $e['end_date']; ?>" required class="<?php echo $input; ?>">
                             </div>
+                            <div class="grid grid-cols-2 gap-2 items-center">
+                                <label class="font-normal text-slate-500">Agreed fee (list <?php echo format_currency($e['price']); ?>)</label>
+                                <input type="number" step="0.01" min="0" name="agreed_fee" value="<?php echo number_format($fee, 2, '.', ''); ?>" required class="<?php echo $input; ?>">
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <select name="status" class="<?php echo $input; ?>"><?php foreach (ENROLLMENT_STATUSES as $st): ?><option <?php echo $e['status'] === $st ? 'selected' : ''; ?>><?php echo $st; ?></option><?php endforeach; ?></select>
                                 <select name="payment_type" class="<?php echo $input; ?>">
@@ -451,7 +517,7 @@ include __DIR__ . '/../includes/header.php';
                                     <option value="INSTALLMENT" <?php echo $e['payment_type'] === 'INSTALLMENT' ? 'selected' : ''; ?>>Installments</option>
                                 </select>
                             </div>
-                            <p class="text-[9px] text-slate-400 font-normal">Switching to installments rebuilds the schedule (monthly from the start date); switching to full cancels unpaid installments.</p>
+                            <p class="text-[9px] text-slate-400 font-normal">Changing the agreed fee recalculates the balance (and the installment schedule). Switching to installments rebuilds the schedule (monthly from the start date); switching to full cancels unpaid installments.</p>
                             <button class="w-full py-1.5 bg-slate-800 text-white rounded">Save changes</button>
                         </form>
                     </details>
@@ -506,6 +572,11 @@ include __DIR__ . '/../includes/header.php';
             plan.querySelector('[value=INSTALLMENT]').disabled = !allowed;
             if (!allowed) plan.value = 'FULL';
             if (o && o.dataset.count) count.value = o.dataset.count;
+            const fee = document.getElementById('reg-fee');
+            if (o && o.dataset.price) {
+                fee.value = Number(o.dataset.price).toFixed(2);
+                document.getElementById('reg-fee-hint').textContent = 'Course price is ' + Number(o.dataset.price).toLocaleString(undefined, {minimumFractionDigits: 2}) + '. Change it if a different price was negotiated.';
+            }
             plan.dispatchEvent(new Event('change'));
         });
         plan.addEventListener('change', () => countWrap.classList.toggle('hidden', plan.value !== 'INSTALLMENT'));

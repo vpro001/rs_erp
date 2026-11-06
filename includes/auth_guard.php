@@ -2,6 +2,7 @@
 // includes/auth_guard.php
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_once __DIR__ . '/staff_roles.php';
 
 // Each portal has its own login page; send logged-out visitors to the one for the area they asked for.
 function portal_login_url($uri)

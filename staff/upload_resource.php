@@ -2,6 +2,7 @@
 // staff/upload_resource.php
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_permission('teach');
 
 $user = current_user();
 $page_title = "Staff - Resource Repository";
@@ -99,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Fetch Staff's courses to populate dropdown select
 $courses = [];
 try {
-    $stmt = $conn->prepare("SELECT id, title FROM courses WHERE instructor_id = ? AND status = 'ACTIVE'");
+    $stmt = $conn->prepare("SELECT id, title FROM courses WHERE status = 'ACTIVE' AND (instructor_id = ? OR id IN (SELECT b.course_id FROM classes b JOIN class_staff cs ON cs.class_id = b.id WHERE cs.staff_id = '" . $conn->real_escape_string((string) $staff_id) . "'))");
     $stmt->bind_param("s", $staff_id);
     $stmt->execute();
     $res = $stmt->get_result();

@@ -135,13 +135,13 @@ include __DIR__ . '/../includes/header.php';
             </h4>
 
             <p class="text-xs text-slate-500 ">
-                Certificates are dynamically awarded upon 100% course completions.
+                Your certificate is issued here once your course end date has passed and your full payment has been certified by the academy.
             </p>
 
             <?php if (empty($certificates)): ?>
                 <div
                     class="text-center py-6 border border-dashed border-slate-200  rounded-xl text-xs text-slate-400">
-                    No certificates earned yet. Complete all lessons of your course to unlock.
+                    No certificates issued yet.
                 </div>
             <?php else: ?>
                 <div class="space-y-3">
@@ -155,11 +155,17 @@ include __DIR__ . '/../includes/header.php';
                                     <?php echo sanitize($cert['certificate_id']); ?></span>
                             </div>
 
-                            <button
-                                class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white rounded font-bold text-[10px] transition-all"
-                                onclick='showCertificate(<?php echo json_encode($cert); ?>, "<?php echo sanitize($user['first_name'] . ' ' . $user['last_name']); ?>")'>
-                                View
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white rounded font-bold text-[10px] transition-all"
+                                    onclick='showCertificate(<?php echo json_encode($cert, JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT); ?>, "<?php echo sanitize($user['first_name'] . ' ' . $user['last_name']); ?>")'>
+                                    View
+                                </button>
+                                <a href="<?php echo BASE_URL; ?>/certificate.php?id=<?php echo urlencode($cert['id']); ?>"
+                                    class="px-3 py-1.5 border border-amber-600 text-amber-700 hover:bg-amber-50 rounded font-bold text-[10px] transition-all flex items-center gap-1">
+                                    <i data-lucide="download" class="w-3 h-3"></i>PDF
+                                </a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

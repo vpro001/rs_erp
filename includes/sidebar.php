@@ -1,6 +1,7 @@
 <?php
 // includes/sidebar.php
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/staff_roles.php';
 $user = current_user();
 $current_page = basename($_SERVER['PHP_SELF']);
 $current_role = $user ? $user['role'] : '';
@@ -12,6 +13,41 @@ function is_menu_active($page_name, $current_page) {
     }
     return 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium';
 }
+
+function sidebar_link($url, $icon, $text, $current_page) {
+    $cls = is_menu_active(basename($url), $current_page);
+    return '<a href="' . BASE_URL . $url . '" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 ' . $cls . '">'
+        . '<i data-lucide="' . $icon . '" class="w-4 h-4 flex-shrink-0"></i><span class="text-sm">' . $text . '</span></a>';
+}
+
+function sidebar_heading($text) {
+    return '<p class="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] px-3 pt-4 pb-2">' . $text . '</p>';
+}
+
+// Staff menu entries per staff role (see includes/staff_roles.php).
+$staff_menus = [
+    'INSTRUCTOR' => [
+        ['/staff/classes.php', 'calendar-check', 'Classes & Attendance'],
+        ['/staff/assignments.php', 'file-edit', 'Assignments'],
+        ['/staff/grading.php', 'award', 'Grading Center'],
+        ['/staff/messages.php', 'message-circle', 'Message Students'],
+        ['/staff/upload_resource.php', 'folder-up', 'Resources Upload'],
+    ],
+    'MARKETING' => [
+        ['/staff/sales.php', 'target', 'Sales & Prospects'],
+        ['/staff/marketers.php', 'megaphone', 'Marketers & Referrals'],
+        ['/staff/meetings.php', 'video', 'Client Meetings'],
+    ],
+    'CUSTOMER_SERVICE' => [
+        ['/staff/students.php', 'user-plus', 'Student Registration'],
+        ['/staff/enrollments.php', 'clipboard-list', 'Enrollments & Payments'],
+        ['/staff/batches.php', 'calendar-range', 'Class Batches'],
+    ],
+    'HEAD_ADMIN' => [
+        ['/staff/certification.php', 'badge-check', 'Certification'],
+    ],
+];
+$my_staff_role = $current_role === 'STAFF' ? staff_role() : null;
 ?>
 
 <!-- ============================================================
@@ -84,6 +120,7 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="megaphone" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Marketers & Referrals</span>
                 </a>
+                <?php echo sidebar_link('/admin/sales.php', 'target', 'Sales & Prospects', $current_page); ?>
                 <a href="<?php echo BASE_URL; ?>/admin/ledger.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('ledger.php', $current_page); ?>">
                     <i data-lucide="wallet" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Finance Ledger</span>
@@ -92,31 +129,20 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Analytics Reports</span>
                 </a>
+
+                <?php echo sidebar_heading('Staff & Academics'); ?>
+                <?php echo sidebar_link('/admin/staff.php', 'id-card', 'Staff Management', $current_page); ?>
+                <?php echo sidebar_link('/admin/certification.php', 'badge-check', 'Certification', $current_page); ?>
+                <?php echo sidebar_link('/admin/assignments.php', 'file-edit', 'Assignments', $current_page); ?>
+                <?php echo sidebar_link('/admin/grading.php', 'award', 'Grading Center', $current_page); ?>
+                <?php echo sidebar_link('/admin/messages.php', 'message-circle', 'Message Students', $current_page); ?>
                 
             <?php elseif ($current_role === 'STAFF'): ?>
-                <!-- Staff Menu -->
-                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] px-3 pt-2 pb-2">Staff Portal</p>
-                
-                <a href="<?php echo BASE_URL; ?>/staff/index.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('index.php', $current_page); ?>">
-                    <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="text-sm">Dashboard</span>
-                </a>
-                <a href="<?php echo BASE_URL; ?>/staff/classes.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('classes.php', $current_page); ?>">
-                    <i data-lucide="calendar-check" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="text-sm">Classes & Attendance</span>
-                </a>
-                <a href="<?php echo BASE_URL; ?>/staff/grading.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('grading.php', $current_page); ?>">
-                    <i data-lucide="award" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="text-sm">Grading Center</span>
-                </a>
-                <a href="<?php echo BASE_URL; ?>/staff/upload_resource.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('upload_resource.php', $current_page); ?>">
-                    <i data-lucide="folder-up" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="text-sm">Resources Upload</span>
-                </a>
-                <a href="<?php echo BASE_URL; ?>/staff/meetings.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('meetings.php', $current_page); ?>">
-                    <i data-lucide="video" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="text-sm">Meeting Schedule</span>
-                </a>
+                <!-- Staff Menu (depends on the staff member's role) -->
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] px-3 pt-2 pb-2"><?php echo STAFF_ROLES[$my_staff_role] ?? 'Staff Portal'; ?></p>
+
+                <?php echo sidebar_link('/staff/index.php', 'layout-dashboard', 'Dashboard', $current_page); ?>
+                <?php foreach ($staff_menus[$my_staff_role] ?? [] as [$url, $icon, $text]) echo sidebar_link($url, $icon, $text, $current_page); ?>
                 
             <?php elseif ($current_role === 'STUDENT'): ?>
                 <!-- Student Menu -->
@@ -142,6 +168,7 @@ function is_menu_active($page_name, $current_page) {
                     <i data-lucide="award" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Exam Results</span>
                 </a>
+                <?php echo sidebar_link('/student/messages.php', 'mail', 'Messages', $current_page); ?>
                 <a href="<?php echo BASE_URL; ?>/student/forum.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('forum.php', $current_page); ?>">
                     <i data-lucide="message-square" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Community Forum</span>
@@ -220,7 +247,7 @@ function is_menu_active($page_name, $current_page) {
                  alt="Avatar" class="w-8 h-8 rounded-full object-cover border border-slate-200 flex-shrink-0">
             <div class="min-w-0">
                 <p class="text-xs font-semibold text-slate-800  truncate leading-none"><?php echo sanitize($user['first_name'] . ' ' . $user['last_name']); ?></p>
-                <span class="text-[11px] text-slate-500 uppercase tracking-wide"><?php echo sanitize($user['role']); ?></span>
+                <span class="text-[11px] text-slate-500 uppercase tracking-wide"><?php echo sanitize($my_staff_role ? STAFF_ROLES[$my_staff_role] : $user['role']); ?></span>
             </div>
         </div>
         <?php endif; ?>

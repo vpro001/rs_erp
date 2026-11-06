@@ -6,6 +6,16 @@ require_once __DIR__ . '/../config/db_connection.php';
 $user = current_user();
 $page_title = "Staff Portal Dashboard";
 
+// Non-instructor roles get their own dashboard; admins browsing here go back to the admin panel.
+if (is_admin_user()) {
+    header("Location: " . BASE_URL . "/admin/index.php");
+    exit();
+}
+if (current_staff() && staff_role() !== 'INSTRUCTOR') {
+    require __DIR__ . '/role_dashboard.php';
+    exit();
+}
+
 // Get staff ID
 $staff_id = null;
 try {
@@ -85,9 +95,8 @@ try {
                             JOIN students s ON a.student_id = s.id 
                             JOIN users_student u ON s.user_id = u.id 
                             JOIN courses c ON a.course_id = c.id 
-                            WHERE c.instructor_id = ? AND a.status = 'SUBMITTED' 
+                            WHERE " . teaching_assignment_scope('a', 'c') . " AND a.status = 'SUBMITTED' 
                             ORDER BY a.submitted_at DESC LIMIT 5");
-    $stmt->bind_param("s", $staff_id);
     $stmt->execute();
     $res = $stmt->get_result();
     while ($row = $res->fetch_assoc()) {
@@ -105,8 +114,7 @@ try {
     $stmt = $conn->prepare("SELECT COUNT(*) as count 
                             FROM assignments a 
                             JOIN courses c ON a.course_id = c.id 
-                            WHERE c.instructor_id = ? AND a.status = 'PENDING'");
-    $stmt->bind_param("s", $staff_id);
+                            WHERE " . teaching_assignment_scope('a', 'c') . " AND a.status = 'PENDING'");
     $stmt->execute();
     $res = $stmt->get_result();
     if ($row = $res->fetch_assoc()) {
@@ -263,6 +271,12 @@ include __DIR__ . '/../includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl space-y-2">
+            <h4 class="text-base font-display font-bold text-slate-800 mb-2">Quick actions</h4>
+            <a href="<?php echo BASE_URL; ?>/staff/assignments.php" class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 text-xs font-semibold text-slate-700"><span class="flex items-center gap-2"><i data-lucide="file-edit" class="w-4 h-4"></i>Send an assignment</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i></a>
+            <a href="<?php echo BASE_URL; ?>/staff/messages.php" class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 text-xs font-semibold text-slate-700"><span class="flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4"></i>Message my students</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i></a>
         </div>
 
         <!-- Resource Upload Launcher -->

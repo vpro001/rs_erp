@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Oct 04, 2026 at 03:08 PM
--- Server version: 10.4.28-MariaDB
--- PHP Version: 8.2.4
+-- Generation Time: Nov 03, 2026 at 06:03 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -30,35 +30,80 @@ SET time_zone = "+00:00";
 CREATE TABLE `activities` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `action` varchar(255) NOT NULL,
   `details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`details`)),
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `activities`
 --
 
-INSERT INTO `activities` (`id`, `user_id`, `action`, `details`, `ip_address`, `user_agent`, `created_at`) VALUES
-('040f61b3-53a2-40ea-9a94-1898f550e664', 'ada31420-9318-4814-8409-6db7cdd00ad9', 'Account Created via Signup', '{\"email\":\"rita.tester@example.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:12:57'),
-('1ccbb706-e834-4a44-aeff-73ed1b43c09b', 'u-staff-0001', 'User Logged In', '{\"email\":\"staff@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:34'),
-('2a9f5108-bb9b-40ca-8ff4-990c5737dad4', 'u-admin-0001', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:13'),
-('35e7d709-2684-48b0-b85b-b46f21a9a0fb', 'u-staff-0001', 'User Logged In', '{\"email\":\"staff@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:13'),
-('39d4fad8-ce4b-44f5-8912-e4179738b26b', 'u-student-0001', 'Processed Paystack Installment Payment', '{\"reference\":\"PAYSTACK_REF_4A9X0VEPY\",\"amount\":290}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36', '2026-09-18 12:36:16'),
-('404426e5-10f8-47d4-ab12-7c051d955fdb', 'u-student-0001', 'User Logged Out', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-10-01 14:19:11'),
-('50914954-7db7-4d8b-8bc3-21ddc28e356e', 'u-client-0001', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:13'),
-('5a373dbe-da83-4881-b556-6a7bcd44b0f9', 'u-student-0001', 'User Logged In', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-10-01 06:42:47'),
-('8dcf4ede-380e-45f3-915f-ae6bd3354017', 'u-student-0001', 'User Logged In', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36', '2026-09-18 12:18:55'),
-('996be969-80bd-4f95-83d5-f057a9ce76a0', 'u-student-0001', 'User Logged Out', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-10-01 06:53:15'),
-('b8766581-d0f3-4305-ab39-01f2830cc76a', 'u-manager-0001', 'User Logged In', '{\"email\":\"manager@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:13'),
-('cb74811b-2521-41ae-b4dd-bc1f7bd6f00f', 'u-student-0001', 'Enrolled in Course', '{\"course_id\":\"course-cloud-002\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-10-01 14:01:15'),
-('d25c0d9f-9e99-4152-b0e1-1b0cc4f9860a', 'u-admin-0001', 'Updated account settings preferences', NULL, '127.0.0.1', 'curl/8.18.0', '2026-10-01 09:52:58'),
-('d29a4ca7-e8e9-4dbe-b657-5ffa4f8842ad', 'u-student-0001', 'User Logged In', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:15:14'),
-('df8aefb9-8252-4a51-816e-e64fd1ef01bb', 'u-student-0001', 'User Logged In', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-10-01 14:01:05'),
-('e579661e-0049-425a-acd4-0b22b08efdb6', 'u-student-0001', 'User Logged In', '{\"email\":\"student@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 06:33:42'),
-('ff9e373f-4ccb-443d-8397-8fb2b9890815', 'u-admin-0001', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-01 07:13:35');
+INSERT INTO `activities` (`id`, `user_id`, `user_type`, `action`, `details`, `ip_address`, `user_agent`, `created_at`) VALUES
+('0a3704e3-8e14-4603-871e-a9523f1d8a3f', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'Scheduled Video Meeting', '{\"meeting_id\":\"a37d7f19-8b3d-4385-88fa-8356ce104614\",\"title\":\"Kickoff call\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:08'),
+('13db30e8-ce75-4f11-945e-dc9ac9146e79', 'u-client-0001', 'STUDENT', 'Requested meeting', '{\"meeting_id\":\"1e004c48-0e42-4cd9-8520-dd4e2265bd84\",\"title\":\"Consequat Quam dignissimos qui cupiditate consequatur cillum ducimus quia nemo sunt omnis pariatur In sunt veniam ut\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 12:44:28'),
+('158990c3-c9c3-4950-84cc-6fd5703724f0', 'u-student-0001', 'STUDENT', 'Updated profile details', '{\"full_name\":\"Test Student\"}', '::1', 'curl/8.18.0', '2026-10-31 08:37:47'),
+('1718a680-f72c-45bc-bbd7-52689f9cb056', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Uploaded document to vault', '{\"file\":\"brief.txt\",\"project_id\":\"78841043-fe2e-49f0-97d7-b6df95d7211b\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('196862f0-95a6-4aad-b385-f7cb6a8edfb5', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Client paid invoice', '{\"payment_id\":\"ff2e93a9-db82-4cfa-9e40-fc9de6e61bcb\",\"reference\":\"PSK-2B9E4A28EEC2\",\"amount\":125000}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('1b5400fa-0a5d-476b-b409-50c4be59690e', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-30 12:36:41'),
+('202ea4a9-f641-47eb-b196-eeaa44696729', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 11:58:25'),
+('28a23e2a-924e-42db-9082-f54b61c6fc8f', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 10:09:45'),
+('2b6034d8-3a5b-444f-8653-597154fdc1d9', 'u-student-0001', 'STUDENT', 'Removed profile photo', NULL, '::1', 'curl/8.18.0', '2026-10-31 08:37:28'),
+('3ab08890-136e-4a84-bb1f-b8e0830815e8', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('3c37a197-3319-4b25-bf37-30b48282af2e', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-30 23:41:42'),
+('3c6f02cb-1b9a-496f-b843-72301d4e169e', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Submitted project request', '{\"proposal\":\"PROP-FA9FE627\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('3c9acf2b-9f3e-4da8-8083-7612e6923bdb', 'be015c0a-a318-455d-aa5e-6361c0310f90', 'STUDENT', 'User Logged In', '{\"email\":\"sakan@example.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-31 06:47:51'),
+('3fb15227-57c4-49ef-aee5-55decf37ab6b', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 14:11:37'),
+('3fe56e1e-0c04-4078-a7b2-4b58b23b269e', 'eea33d78-9484-47f1-be2d-fc03b53e4130', 'STUDENT', 'Account Created via Signup', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:21'),
+('41bb7d30-90d8-4037-a07d-ff507548e473', 'u-admin-0001', 'STUDENT', 'Project delivery action: toggle_milestone', '{\"project_id\":\"27121603-df76-4147-9f8e-0f54535bf3b9\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('43278a70-db09-49ce-95c8-19693f06dee0', 'u-admin-0001', 'STUDENT', 'Project delivery action: issue_invoice', '{\"project_id\":\"27121603-df76-4147-9f8e-0f54535bf3b9\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('49cd93f0-086d-4c38-839f-19b0f58312a6', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Requested meeting', '{\"meeting_id\":\"bf9abf40-0d90-4897-ac69-8fd1ca2d8e52\",\"title\":\"Discuss my site\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('4df5a794-18f1-4a5e-bd26-5c20f96fdca3', 'a0e79b5a-5501-442f-8f3f-215e504e87ff', 'STUDENT', 'Account Created via Signup', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:21'),
+('510be0f3-8668-4a5a-9ba8-803dbc8073a3', 'a0e79b5a-5501-442f-8f3f-215e504e87ff', 'STUDENT', 'Uploaded document to vault', '{\"file\":\"brief.txt\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:35'),
+('51a423ea-e739-4324-9c1f-467e34f29db3', 'be015c0a-a318-455d-aa5e-6361c0310f90', 'STUDENT', 'Referred a student', '{\"email\":\"royaleducityapp@gmail.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-31 06:49:56'),
+('56529c5c-14c5-443e-a270-d0266ff546d2', 'u-student-0001', 'STUDENT', 'Updated profile photo', NULL, '::1', 'curl/8.18.0', '2026-10-31 08:37:47'),
+('56ee189c-0d18-4a40-8ffd-10cbf428cfeb', 'u-admin-0001', 'STUDENT', 'Meeting confirm', '{\"meeting_id\":\"bf9abf40-0d90-4897-ac69-8fd1ca2d8e52\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('69ef3c5e-0485-4b6b-98eb-ec21ab14a154', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'Approved Sales Proposal', '{\"proposal_id\":\"901f487a-3ff4-483e-861a-459647d4e324\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('6bc7bcc6-b47a-4c87-b30c-e69bfd45c226', 'u-admin-0001', 'STUDENT', 'Paid marketer commission', '{\"commission\":\"0c163185-769c-4656-8158-f520b862bffe\"}', '127.0.0.1', 'Unknown', '2026-10-30 11:46:45'),
+('70fa472f-c80e-444b-89c2-ef35976e3067', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 11:30:40'),
+('75c05813-99ca-44dc-9a97-fae1752d4941', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('7711f37c-abee-4bc2-8c16-d451a3f22a04', 'u-admin-0001', 'STUDENT', 'Initiated project from proposal', '{\"project_title\":\"Vault test\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('7723077d-0eba-4e85-91cd-f730ab89c998', 'u-student-0001', 'STUDENT', 'Updated profile photo', NULL, '::1', 'curl/8.18.0', '2026-10-31 08:37:47'),
+('8d8b1723-3396-4f9e-9a2d-5e88c01dcf35', 'zz-test-cuser', 'STUDENT', 'Submitted project request', '{\"proposal\":\"PROP-51A1D1AE\"}', '127.0.0.1', 'Unknown', '2026-10-30 11:46:46'),
+('90535273-4539-4136-a9eb-354fc3834776', '16496ca6-6335-4f91-b6c8-37284f96d728', 'STUDENT', 'Submitted project request', '{\"proposal\":\"PROP-6A559DB8\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 11:58:25'),
+('92a1d9db-3aa8-469d-8c25-9ac36c71fcd3', 'u-admin-0001', 'STUDENT', 'Project delivery action: post_update', '{\"project_id\":\"27121603-df76-4147-9f8e-0f54535bf3b9\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('92c8b5c4-bdb6-4068-a21c-1147af776b02', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'Submitted project request', '{\"proposal\":\"PROP-901F487A\",\"estimate\":4300}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:51'),
+('92d73da2-4fb9-4f16-b0ab-57bfe6388d58', 'u-admin-0001', 'STUDENT', 'Sent proposal to client', '{\"proposal\":\"PROP-FA9FE627\",\"amount\":250000}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('98bfc866-57c7-4494-a60a-128bdf8ca11c', 'u-client-0001', 'STUDENT', 'Submitted project request', '{\"proposal\":\"PROP-69F738BB\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 12:21:47'),
+('9ed5f4fc-9280-4ad6-a8f7-6000b9a85a7a', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Rolled back document version', '{\"document\":\"brief.txt\",\"version\":1}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:07'),
+('9f2ef697-94c0-4004-b4ff-ae6a29903e66', 'u-admin-0001', 'STUDENT', 'Meeting reschedule', '{\"meeting_id\":\"bf9abf40-0d90-4897-ac69-8fd1ca2d8e52\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('a883b1f7-dc0d-472d-b36c-35675eba160f', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-30 09:54:29'),
+('aa3f4e37-0b67-4315-9148-81187b4ad368', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-30 09:05:12'),
+('ac052db0-1ec3-4bc8-84a8-61c4f66db479', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:51'),
+('b46e25e8-57cb-4ade-a68c-7b2921602653', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-28 16:40:34'),
+('b56ab46f-6eda-45e3-8938-3f124617dffe', 'u-student-0001', 'STUDENT', 'Removed profile photo', NULL, '::1', 'curl/8.18.0', '2026-10-31 08:37:47'),
+('b8590215-5c67-4abc-a7fa-6c24df89db1a', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Uploaded document to vault', '{\"file\":\"brief.txt\",\"project_id\":\"78841043-fe2e-49f0-97d7-b6df95d7211b\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('bd8f69a4-4c52-45c9-ac77-4533b98e3a93', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'curl/8.18.0', '2026-10-26 18:42:59'),
+('bdf97e0e-4248-4a05-a7bd-0e5eec7525e1', 'a0e79b5a-5501-442f-8f3f-215e504e87ff', 'STUDENT', 'User Logged In', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:34'),
+('c0d856d2-faf7-40bf-a90e-f2045e523cab', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:05'),
+('c4647298-8ece-493d-9860-8e55575af243', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Approved Sales Proposal', '{\"proposal_id\":\"fa9fe627-ec51-4720-a77f-3f781ec33224\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:06'),
+('c9bd8020-8a80-41f4-8b4d-6d64b74cd667', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'Client paid invoice', '{\"payment_id\":\"1ece258e-b66f-476e-931f-40fc8debec93\",\"reference\":\"PSK-F5BAAB9B2D5F\",\"amount\":2100}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('cbe40a62-e573-4f1a-ad7a-657eccabe2c9', 'a0e79b5a-5501-442f-8f3f-215e504e87ff', 'STUDENT', 'Uploaded document to vault', '{\"file\":\"brief.txt\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:35'),
+('cdaf374a-f6c0-4c98-b0e8-870f4bac7e61', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 15:13:56'),
+('cf252285-41b3-47be-9d5b-309716724f0d', '16496ca6-6335-4f91-b6c8-37284f96d728', 'STUDENT', 'Account Created via Signup', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 11:58:24'),
+('d3f389c5-8ec5-4c62-924b-e95d26dd294f', 'be8a6707-5b21-4208-aca4-4f7031a1d22d', 'STUDENT', 'Account Created via Signup', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 12:36:05'),
+('dc611631-acf1-4f17-8fc0-a096d7a5f974', 'u-admin-0001', 'STUDENT', 'Created marketer account', '{\"email\":\"sakan@example.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-30 23:47:28'),
+('ddd74085-804e-4247-bb2b-ae6334950616', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'User Logged In', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:33:08'),
+('df347908-8bfa-415a-916c-7a8cbbd9e66b', 'u-admin-0001', 'STUDENT', 'Initiated project from proposal', '{\"project_title\":\"Inventory web app\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:52'),
+('e362b55e-daf3-4375-a44e-2276ec0191ee', 'u-admin-0001', 'STUDENT', 'Sent proposal to client', '{\"proposal\":\"PROP-6A559DB8\",\"amount\":1800}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 11:58:25'),
+('e3988d61-b205-41c8-b1fd-bd3d7fa9c3ed', 'u-client-0001', 'STUDENT', 'User Logged In', '{\"email\":\"client@royalsolutions.com\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-28 23:01:07'),
+('eb278280-d30d-4567-9926-a4654f37885f', 'u-client-0001', 'STUDENT', 'Uploaded document to vault', '{\"file\":\"04.png\",\"project_id\":\"proj-001\"}', '::1', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36', '2026-10-29 12:55:32'),
+('f04d368b-6716-4111-9886-4aaab7210881', '4678d40a-384b-474a-aabf-3430c7794d62', 'STUDENT', 'Account Created via Signup', '{\"email\":\"e2e.tester@example.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:51'),
+('f9a48309-b76e-4e5b-9ac4-eaf0ef504458', 'u-admin-0001', 'STUDENT', 'Sent proposal to client', '{\"proposal\":\"PROP-901F487A\",\"amount\":4200}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:51'),
+('fd6e3b8b-bdb4-4ce3-aba1-a43e1e916e3c', 'u-admin-0001', 'STUDENT', 'User Logged In', '{\"email\":\"admin@royalsolutions.com\"}', '127.0.0.1', 'Python-urllib/3.14', '2026-10-29 10:32:28');
 
 -- --------------------------------------------------------
 
@@ -76,7 +121,7 @@ CREATE TABLE `assessments` (
   `notes` text DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -99,14 +144,14 @@ CREATE TABLE `assignments` (
   `graded_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `assignments`
 --
 
 INSERT INTO `assignments` (`id`, `course_id`, `student_id`, `title`, `description`, `due_date`, `status`, `submission`, `grade`, `feedback`, `submitted_at`, `graded_at`, `created_at`, `updated_at`) VALUES
-('as-001', 'course-fullstack-001', 'stud-rec-0001', 'Build a Secure Parameterized Database Wrapper', 'Implement a reusable db_query helper with strict bind_param type checking and transaction controls.', '2026-09-23 11:30:50', 'PENDING', NULL, NULL, NULL, NULL, NULL, '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+('as-001', 'course-fullstack-001', 'stud-rec-0001', 'Build a Secure Parameterized Database Wrapper', 'Implement a reusable db_query helper with strict bind_param type checking and transaction controls.', '2026-10-31 18:13:05', 'PENDING', NULL, NULL, NULL, NULL, NULL, '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -119,8 +164,10 @@ CREATE TABLE `attendance` (
   `student_id` varchar(36) NOT NULL,
   `date` date NOT NULL,
   `status` enum('PRESENT','ABSENT','LATE','EXCUSED') NOT NULL,
-  `notes` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `notes` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -131,22 +178,23 @@ CREATE TABLE `attendance` (
 CREATE TABLE `balances` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `amount` decimal(15,2) DEFAULT 0.00,
   `currency` varchar(10) DEFAULT 'USD',
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `balances`
 --
 
-INSERT INTO `balances` (`id`, `user_id`, `amount`, `currency`, `created_at`, `updated_at`) VALUES
-('bal-admin-0001', 'u-admin-0001', 0.00, 'USD', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('bal-client-0001', 'u-client-0001', 0.00, 'USD', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('bal-manager-0001', 'u-manager-0001', 0.00, 'USD', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('bal-staff-0001', 'u-staff-0001', 0.00, 'USD', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('bal-student-0001', 'u-student-0001', 0.00, 'USD', '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+INSERT INTO `balances` (`id`, `user_id`, `user_type`, `amount`, `currency`, `created_at`, `updated_at`) VALUES
+('bal-admin-0001', 'u-admin-0001', 'ADMIN', 0.00, 'USD', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('bal-client-0001', 'u-client-0001', 'CLIENT', 0.00, 'USD', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('bal-manager-0001', 'u-manager-0001', 'ADMIN', 0.00, 'USD', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('bal-staff-0001', 'u-staff-0001', 'STAFF', 0.00, 'USD', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('bal-student-0001', 'u-student-0001', 'STUDENT', 0.00, 'USD', '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -163,7 +211,7 @@ CREATE TABLE `certificates` (
   `digital_signature` text NOT NULL,
   `issue_date` datetime DEFAULT current_timestamp(),
   `is_valid` tinyint(1) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -182,14 +230,14 @@ CREATE TABLE `classes` (
   `status` enum('ACTIVE','INACTIVE','COMPLETED','CANCELLED') DEFAULT 'ACTIVE',
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `classes`
 --
 
 INSERT INTO `classes` (`id`, `course_id`, `name`, `description`, `start_date`, `end_date`, `capacity`, `status`, `created_at`, `updated_at`) VALUES
-('cls-001', 'course-fullstack-001', 'Cohort Alpha (Fall 2026)', 'Live weekend coding cohort covering fullstack architectures.', '2026-09-18 11:30:50', '2026-12-17 11:30:50', 30, 'ACTIVE', '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+('cls-001', 'course-fullstack-001', 'Cohort Alpha (Fall 2026)', 'Live weekend coding cohort covering fullstack architectures.', '2026-10-26 18:13:05', '2027-01-24 18:13:05', 30, 'ACTIVE', '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -208,7 +256,7 @@ CREATE TABLE `class_resources` (
   `file_size` varchar(50) DEFAULT NULL,
   `uploaded_by` varchar(36) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -222,14 +270,14 @@ CREATE TABLE `class_staff` (
   `staff_id` varchar(36) NOT NULL,
   `role` varchar(100) DEFAULT NULL,
   `assigned_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `class_staff`
 --
 
 INSERT INTO `class_staff` (`id`, `class_id`, `staff_id`, `role`, `assigned_at`) VALUES
-('cst-001', 'cls-001', 'staff-rec-0001', 'Lead Instructor', '2026-09-18 11:30:50');
+('cst-001', 'cls-001', 'staff-rec-0001', 'Lead Instructor', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -244,14 +292,14 @@ CREATE TABLE `class_students` (
   `assigned_at` datetime DEFAULT current_timestamp(),
   `assigned_by` varchar(100) DEFAULT NULL,
   `status` enum('ACTIVE','SUSPENDED','DROPPED','COMPLETED') DEFAULT 'ACTIVE'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `class_students`
 --
 
 INSERT INTO `class_students` (`id`, `class_id`, `student_id`, `assigned_at`, `assigned_by`, `status`) VALUES
-('cs-001', 'cls-001', 'stud-rec-0001', '2026-09-18 11:30:50', NULL, 'ACTIVE');
+('cs-001', 'cls-001', 'stud-rec-0001', '2026-10-26 18:13:05', NULL, 'ACTIVE');
 
 -- --------------------------------------------------------
 
@@ -266,18 +314,16 @@ CREATE TABLE `clients` (
   `company_name` varchar(200) DEFAULT NULL,
   `contact_person` varchar(200) DEFAULT NULL,
   `website` varchar(255) DEFAULT NULL,
-  `industry` varchar(100) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `industry` varchar(100) DEFAULT NULL,
+  `referred_by` varchar(36) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `clients`
 --
 
-INSERT INTO `clients` (`id`, `user_id`, `client_id`, `company_name`, `contact_person`, `website`, `industry`) VALUES
-('17c0bb82-02e6-4279-a135-cd73829d4c61', 'ada31420-9318-4814-8409-6db7cdd00ad9', 'CL-87231', 'Rita Corp', 'Rita Tester', NULL, NULL),
-('a934680b-7ab9-421b-8b5f-ef150006145b', '6a7967d8-0394-47ef-baac-3bab2101b3d9', 'CL-42836', 'Xander Corp', 'Zephania Willis', NULL, NULL),
-('client-rec-0001', 'u-client-0001', 'CL-90210', 'Apex Global Technologies', 'David Miller', 'https://apextech.example.com', 'Fintech & Cloud Solutions'),
-('f77e86f4-01a2-4a8e-9da3-276d68e181e4', 'ef80d5b4-3a3f-4d56-8396-b0e13166653c', 'CL-001', 'Acme Corporation', 'Alice Johnson', NULL, NULL);
+INSERT INTO `clients` (`id`, `user_id`, `client_id`, `company_name`, `contact_person`, `website`, `industry`, `referred_by`) VALUES
+('client-rec-0001', 'u-client-0001', 'CL-90210', 'Apex Global Technologies', 'David Miller', 'https://apextech.example.com', 'Fintech & Cloud Solutions', NULL);
 
 -- --------------------------------------------------------
 
@@ -299,7 +345,7 @@ CREATE TABLE `complaints` (
   `resolution` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -325,15 +371,15 @@ CREATE TABLE `courses` (
   `category_id` varchar(36) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `courses`
 --
 
 INSERT INTO `courses` (`id`, `title`, `description`, `thumbnail`, `price`, `duration`, `level`, `mode`, `status`, `max_enrollment`, `allow_installment`, `installment_count`, `installment_amount`, `instructor_id`, `category_id`, `created_at`, `updated_at`) VALUES
-('course-cloud-002', 'Enterprise Cloud & DevOps Infrastructure', 'Hands-on enterprise systems deployment, container orchestration, and server security hardening.', NULL, 1200.00, '16 Weeks', 'ADVANCED', 'ONLINE', 'ACTIVE', 40, 1, 4, 300.00, 'staff-rec-0001', 'cat-cloud-0002', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('course-fullstack-001', 'Fullstack Web Architecture with Modern PHP & MySQL', 'Master production web application design with procedural and modular PHP, MySQL prepared statements, Tailwind CSS, and RESTful APIs.', NULL, 850.00, '12 Weeks', 'INTERMEDIATE', 'ONLINE', 'ACTIVE', 50, 1, 3, 290.00, 'staff-rec-0001', 'cat-web-0001', '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+('course-cloud-002', 'Enterprise Cloud & DevOps Infrastructure', 'Hands-on enterprise systems deployment, container orchestration, and server security hardening.', NULL, 1200.00, '16 Weeks', 'ADVANCED', 'ONLINE', 'ACTIVE', 40, 1, 4, 300.00, 'staff-rec-0001', 'cat-cloud-0002', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('course-fullstack-001', 'Fullstack Web Architecture with Modern PHP & MySQL', 'Master production web application design with procedural and modular PHP, MySQL prepared statements, Tailwind CSS, and RESTful APIs.', NULL, 850.00, '12 Weeks', 'INTERMEDIATE', 'ONLINE', 'ACTIVE', 50, 1, 3, 290.00, 'staff-rec-0001', 'cat-web-0001', '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -345,7 +391,7 @@ CREATE TABLE `course_categories` (
   `id` varchar(36) NOT NULL,
   `name` varchar(191) NOT NULL,
   `description` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `course_categories`
@@ -369,7 +415,7 @@ CREATE TABLE `course_resources` (
   `url` varchar(255) DEFAULT NULL,
   `file_path` varchar(255) DEFAULT NULL,
   `size` varchar(50) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -388,7 +434,14 @@ CREATE TABLE `documents` (
   `uploaded_by` varchar(100) NOT NULL,
   `uploaded_at` datetime DEFAULT current_timestamp(),
   `current_version` int(11) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `documents`
+--
+
+INSERT INTO `documents` (`id`, `file_name`, `file_path`, `file_size`, `mime_type`, `client_id`, `project_id`, `uploaded_by`, `uploaded_at`, `current_version`) VALUES
+('75b6214d-31d2-49e5-bd7e-ec4b856aff7a', '04.png', '/uploads/documents/6ae334348cd09_04.png', '978.7 KB', 'image/png', 'client-rec-0001', 'proj-001', 'David Miller', '2026-10-29 12:55:32', 1);
 
 -- --------------------------------------------------------
 
@@ -404,8 +457,8 @@ CREATE TABLE `document_versions` (
   `file_size` varchar(50) DEFAULT NULL,
   `uploaded_by` varchar(100) NOT NULL,
   `uploaded_at` datetime DEFAULT current_timestamp(),
-  `change_summary` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `change_summary` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -423,16 +476,19 @@ CREATE TABLE `enrollments` (
   `completion_date` datetime DEFAULT NULL,
   `payment_type` enum('FULL','INSTALLMENT') DEFAULT 'FULL',
   `total_paid` decimal(15,2) DEFAULT 0.00,
-  `amount_due` decimal(15,2) DEFAULT 0.00
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `amount_due` decimal(15,2) DEFAULT 0.00,
+  `batch_id` varchar(36) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `admission_sent_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `enrollments`
 --
 
-INSERT INTO `enrollments` (`id`, `student_id`, `course_id`, `enrollment_date`, `status`, `progress`, `completion_date`, `payment_type`, `total_paid`, `amount_due`) VALUES
-('7950388b-fa51-4f07-aff0-49992ba2abe5', 'stud-rec-0001', 'course-cloud-002', '2026-10-01 14:01:15', 'ACTIVE', 0, NULL, 'FULL', 1200.00, 0.00),
-('enr-0001', 'stud-rec-0001', 'course-fullstack-001', '2026-09-18 11:30:50', 'ACTIVE', 33, NULL, 'INSTALLMENT', 580.00, 290.00);
+INSERT INTO `enrollments` (`id`, `student_id`, `course_id`, `enrollment_date`, `status`, `progress`, `completion_date`, `payment_type`, `total_paid`, `amount_due`, `batch_id`, `start_date`, `end_date`, `admission_sent_at`) VALUES
+('enr-0001', 'stud-rec-0001', 'course-fullstack-001', '2026-10-26 18:13:05', 'ACTIVE', 33, NULL, 'INSTALLMENT', 290.00, 580.00, 'cls-001', '2026-10-26', '2027-01-24', NULL);
 
 -- --------------------------------------------------------
 
@@ -448,7 +504,7 @@ CREATE TABLE `expense_records` (
   `date` datetime DEFAULT current_timestamp(),
   `receipt` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -468,14 +524,14 @@ CREATE TABLE `forum_posts` (
   `is_resolved` tinyint(1) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `forum_posts`
 --
 
 INSERT INTO `forum_posts` (`id`, `student_id`, `course_id`, `title`, `content`, `category`, `tags`, `is_pinned`, `is_resolved`, `created_at`, `updated_at`) VALUES
-('post-001', 'stud-rec-0001', 'course-fullstack-001', 'Best practice for securing mysqli prepared statements against type casting?', 'When binding decimal currency values in PHP mysqli, should we declare them as \"d\" or format them as strings \"s\" with precise decimal scale?', 'Coding', '[\"PHP\", \"MySQL\", \"Security\"]', 1, 0, '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+('post-001', 'stud-rec-0001', 'course-fullstack-001', 'Best practice for securing mysqli prepared statements against type casting?', 'When binding decimal currency values in PHP mysqli, should we declare them as \"d\" or format them as strings \"s\" with precise decimal scale?', 'Coding', '[\"PHP\", \"MySQL\", \"Security\"]', 1, 0, '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -488,7 +544,7 @@ CREATE TABLE `forum_post_likes` (
   `post_id` varchar(36) NOT NULL,
   `student_id` varchar(36) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -501,9 +557,9 @@ CREATE TABLE `forum_replies` (
   `post_id` varchar(36) NOT NULL,
   `student_id` varchar(36) NOT NULL,
   `content` text NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `is_solution` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `is_solution` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -516,7 +572,7 @@ CREATE TABLE `forum_reply_likes` (
   `reply_id` varchar(36) NOT NULL,
   `student_id` varchar(36) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -532,15 +588,7 @@ CREATE TABLE `income_records` (
   `date` datetime DEFAULT current_timestamp(),
   `category` varchar(100) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `income_records`
---
-
-INSERT INTO `income_records` (`id`, `source`, `amount`, `description`, `date`, `category`, `created_at`) VALUES
-('2bb4f0f5-3584-4656-a75b-7fa323be7a96', 'TRAINING', 290.00, 'Installment #2 Course payment: PAYSTACK_REF_4A9X0VEPY', '2026-09-18 12:36:16', 'LMS Course Fee', '2026-09-18 12:36:16'),
-('6fc40817-efd1-4a14-a701-b87344d1af2d', 'TRAINING', 1200.00, 'Manual enrollment course fee: student_id stud-rec-0001', '2026-10-01 14:01:15', 'LMS Course Fee', '2026-10-01 14:01:15');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -563,16 +611,16 @@ CREATE TABLE `installment_payments` (
   `reminder_sent_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `installment_payments`
 --
 
 INSERT INTO `installment_payments` (`id`, `enrollment_id`, `installment_number`, `amount`, `due_date`, `paid_date`, `status`, `paystack_reference`, `paystack_access_code`, `transaction_id`, `reminder_sent`, `reminder_sent_at`, `created_at`, `updated_at`) VALUES
-('inst-001', 'enr-0001', 1, 290.00, '2026-09-08 11:30:50', '2026-09-18 11:30:50', 'PAID', 'PAYSTACK_REF_INIT_001', NULL, NULL, 0, NULL, '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('inst-002', 'enr-0001', 2, 290.00, '2026-09-20 11:30:50', '2026-09-18 12:36:16', 'PAID', 'PAYSTACK_REF_4A9X0VEPY', NULL, NULL, 0, NULL, '2026-09-18 11:30:50', '2026-09-18 12:36:16'),
-('inst-003', 'enr-0001', 3, 290.00, '2026-10-20 11:30:50', NULL, 'PENDING', NULL, NULL, NULL, 0, NULL, '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+('inst-001', 'enr-0001', 1, 290.00, '2026-10-16 18:13:05', '2026-10-26 18:13:05', 'PAID', 'PAYSTACK_REF_INIT_001', NULL, NULL, 0, NULL, '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('inst-002', 'enr-0001', 2, 290.00, '2026-10-28 18:13:05', NULL, 'PENDING', NULL, NULL, NULL, 0, NULL, '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('inst-003', 'enr-0001', 3, 290.00, '2026-11-27 18:13:05', NULL, 'PENDING', NULL, NULL, NULL, 0, NULL, '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -589,7 +637,7 @@ CREATE TABLE `lessons` (
   `duration` varchar(50) DEFAULT NULL,
   `order_num` int(11) NOT NULL,
   `is_free` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `lessons`
@@ -608,17 +656,60 @@ INSERT INTO `lessons` (`id`, `module_id`, `title`, `content`, `video_url`, `dura
 
 CREATE TABLE `lesson_completions` (
   `id` varchar(36) NOT NULL,
-  `student_id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `lesson_id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `student_id` varchar(36) NOT NULL,
+  `lesson_id` varchar(36) NOT NULL,
   `completed_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `lesson_completions`
+-- Table structure for table `marketer_commissions`
 --
 
-INSERT INTO `lesson_completions` (`id`, `student_id`, `lesson_id`, `completed_at`) VALUES
-('8f3f342b-7797-46cd-ad67-26592377b76c', 'stud-rec-0001', 'les-001', '2026-10-01 06:52:49');
+CREATE TABLE `marketer_commissions` (
+  `id` varchar(36) NOT NULL,
+  `marketer_id` varchar(36) NOT NULL,
+  `source` enum('PROJECT','STUDENT') NOT NULL,
+  `project_id` varchar(36) DEFAULT NULL,
+  `referral_id` varchar(36) DEFAULT NULL,
+  `description` varchar(255) NOT NULL,
+  `base_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `rate` decimal(5,2) DEFAULT NULL,
+  `amount` decimal(15,2) NOT NULL,
+  `status` enum('EARNED','PAID','CANCELLED') DEFAULT 'EARNED',
+  `payout_ref` varchar(100) DEFAULT NULL,
+  `paid_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `marketer_student_referrals`
+--
+
+CREATE TABLE `marketer_student_referrals` (
+  `id` varchar(36) NOT NULL,
+  `marketer_id` varchar(36) NOT NULL,
+  `full_name` varchar(200) NOT NULL,
+  `email` varchar(191) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `course_id` varchar(36) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `status` enum('PENDING','CONFIRMED','REJECTED') DEFAULT 'PENDING',
+  `review_note` varchar(255) DEFAULT NULL,
+  `reviewed_by` varchar(36) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `marketer_student_referrals`
+--
+
+INSERT INTO `marketer_student_referrals` (`id`, `marketer_id`, `full_name`, `email`, `phone`, `course_id`, `note`, `status`, `review_note`, `reviewed_by`, `reviewed_at`, `created_at`) VALUES
+('2ffaf3ae-6a06-4cca-bccb-9be32bac6566', 'be015c0a-a318-455d-aa5e-6361c0310f90', 'Victor Ikechukwu', 'royaleducityapp@gmail.com', NULL, NULL, NULL, 'PENDING', NULL, NULL, NULL, '2026-10-31 06:49:56');
 
 -- --------------------------------------------------------
 
@@ -636,10 +727,17 @@ CREATE TABLE `meetings` (
   `duration` int(11) DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
   `meeting_url` varchar(255) DEFAULT NULL,
-  `status` enum('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELLED','RESCHEDULED') DEFAULT 'SCHEDULED',
+  `status` enum('REQUESTED','SCHEDULED','IN_PROGRESS','COMPLETED','CANCELLED','RESCHEDULED') DEFAULT 'SCHEDULED',
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `meetings`
+--
+
+INSERT INTO `meetings` (`id`, `title`, `description`, `client_id`, `staff_id`, `meeting_date`, `duration`, `location`, `meeting_url`, `status`, `created_at`, `updated_at`) VALUES
+('1e004c48-0e42-4cd9-8520-dd4e2265bd84', 'Consequat Quam dignissimos qui cupiditate consequatur cillum ducimus quia nemo sunt omnis pariatur In sunt veniam ut', 'Quas perspiciatis d', 'client-rec-0001', NULL, '2027-01-13 10:40:00', 30, NULL, NULL, 'REQUESTED', '2026-10-29 12:44:28', '2026-10-29 12:44:28');
 
 -- --------------------------------------------------------
 
@@ -654,7 +752,7 @@ CREATE TABLE `modules` (
   `description` text DEFAULT NULL,
   `order_num` int(11) NOT NULL,
   `is_active` tinyint(1) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `modules`
@@ -673,6 +771,7 @@ INSERT INTO `modules` (`id`, `course_id`, `title`, `description`, `order_num`, `
 CREATE TABLE `notifications` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `title` varchar(255) NOT NULL,
   `message` text NOT NULL,
   `type` varchar(50) DEFAULT 'GENERAL',
@@ -682,14 +781,21 @@ CREATE TABLE `notifications` (
   `link` varchar(255) DEFAULT NULL,
   `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`metadata`)),
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `notifications`
 --
 
-INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `priority`, `is_read`, `archived`, `link`, `metadata`, `created_at`) VALUES
-('aabf26bf-b05b-4da9-ad4b-26b6d50f50f6', 'u-student-0001', 'Installment Payment Successful', 'Payment of $290.00 has been successfully processed.', 'FINANCE', 'MEDIUM', 0, 0, NULL, NULL, '2026-09-18 12:36:16');
+INSERT INTO `notifications` (`id`, `user_id`, `user_type`, `title`, `message`, `type`, `priority`, `is_read`, `archived`, `link`, `metadata`, `created_at`) VALUES
+('037b397b-86b8-47d3-aa63-d3607effa487', 'u-manager-0001', 'ADMIN', 'Student referral to confirm', 'Suki Sweeney referred Victor Ikechukwu (royaleducityapp@gmail.com). Confirm once they have registered.', 'CRM', 'HIGH', 0, 0, '/admin/marketers.php?tab=referrals', NULL, '2026-10-31 06:49:56'),
+('426dbec2-18fe-4ad9-a38a-d74aedd9b61d', 'u-admin-0001', 'ADMIN', 'Client uploaded a document', 'Apex Global Technologies uploaded \'04.png\' to project Enterprise Fintech Dashboard & Payment Hub.', 'CRM', 'HIGH', 0, 0, '/admin/project_control.php?project_id=proj-001', NULL, '2026-10-29 12:55:32'),
+('58d4efce-3f60-40db-a8c8-034838b2d661', 'u-manager-0001', 'ADMIN', 'New project request', 'Apex Global Technologies requested \'Consequat Odio doloribus sed est qui labore voluptate magna excepteur\' (Website revamp / redesign). Review the brief and set a price.', 'CRM', 'HIGH', 0, 0, '/admin/proposals.php', NULL, '2026-10-29 12:21:47'),
+('75468e3b-70d8-463e-a9c7-2710846aabb8', 'u-admin-0001', 'ADMIN', 'Student referral to confirm', 'Suki Sweeney referred Victor Ikechukwu (royaleducityapp@gmail.com). Confirm once they have registered.', 'CRM', 'HIGH', 0, 0, '/admin/marketers.php?tab=referrals', NULL, '2026-10-31 06:49:56'),
+('754e9eab-9da6-4489-acd1-bd220c57b3ab', 'u-manager-0001', 'ADMIN', 'Client uploaded a document', 'Apex Global Technologies uploaded \'04.png\' to project Enterprise Fintech Dashboard & Payment Hub.', 'CRM', 'HIGH', 0, 0, '/admin/project_control.php?project_id=proj-001', NULL, '2026-10-29 12:55:32'),
+('c4e76ded-1de5-4d12-9f4e-5d8ec55ccb2b', 'u-admin-0001', 'ADMIN', 'New project request', 'Apex Global Technologies requested \'Consequat Odio doloribus sed est qui labore voluptate magna excepteur\' (Website revamp / redesign). Review the brief and set a price.', 'CRM', 'HIGH', 0, 0, '/admin/proposals.php', NULL, '2026-10-29 12:21:47'),
+('d3fe2e11-0208-4bf8-a3e0-c48eb6afc74e', 'u-manager-0001', 'ADMIN', 'Meeting requested', 'Apex Global Technologies requested \'Consequat Quam dignissimos qui cupiditate consequatur cillum ducimus quia nemo sunt omnis pariatur In sunt veniam ut\' for Jan 13, 10:40. Confirm or reschedule it.', 'CRM', 'HIGH', 0, 0, '/admin/meetings.php', NULL, '2026-10-29 12:44:28'),
+('d805507d-0653-47b3-9a0b-1a35c860c0e4', 'u-admin-0001', 'ADMIN', 'Meeting requested', 'Apex Global Technologies requested \'Consequat Quam dignissimos qui cupiditate consequatur cillum ducimus quia nemo sunt omnis pariatur In sunt veniam ut\' for Jan 13, 10:40. Confirm or reschedule it.', 'CRM', 'HIGH', 0, 0, '/admin/meetings.php', NULL, '2026-10-29 12:44:28');
 
 -- --------------------------------------------------------
 
@@ -716,15 +822,7 @@ CREATE TABLE `payments` (
   `course_id` varchar(36) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `payments`
---
-
-INSERT INTO `payments` (`id`, `transaction_id`, `type`, `amount`, `method`, `status`, `description`, `due_date`, `paid_at`, `receipt_url`, `paystack_reference`, `paystack_access_code`, `student_id`, `client_id`, `project_id`, `course_id`, `created_at`, `updated_at`) VALUES
-('3b14cfb9-37ea-440b-8a58-fdf2a73fd590', 'TXN-6892658', 'COURSE_FEE', 290.00, 'PAYSTACK', 'COMPLETED', 'Installment #2 Course payment: PAYSTACK_REF_4A9X0VEPY', NULL, '2026-09-18 12:36:16', NULL, 'PAYSTACK_REF_4A9X0VEPY', NULL, 'stud-rec-0001', NULL, NULL, 'course-fullstack-001', '2026-09-18 12:36:16', '2026-09-18 12:36:16'),
-('f2fee556-b563-4939-aeb9-50f27c60f850', 'TXN-9334349', 'COURSE_FEE', 1200.00, 'CASH', 'COMPLETED', 'Manual enrollment course fee: student_id stud-rec-0001', NULL, '2026-10-01 14:01:15', NULL, NULL, NULL, 'stud-rec-0001', NULL, NULL, 'course-cloud-002', '2026-10-01 14:01:15', '2026-10-01 14:01:15');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -741,7 +839,7 @@ CREATE TABLE `performance_reviews` (
   `goals` text DEFAULT NULL,
   `review_date` datetime DEFAULT current_timestamp(),
   `reviewed_by` varchar(100) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -752,21 +850,24 @@ CREATE TABLE `performance_reviews` (
 CREATE TABLE `profiles` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `full_name` varchar(200) DEFAULT NULL,
-  `bio` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `bio` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `profiles`
 --
 
-INSERT INTO `profiles` (`id`, `user_id`, `full_name`, `bio`) VALUES
-('a7c2d40e-348e-4d6b-a509-c6cfb51f2d81', 'ada31420-9318-4814-8409-6db7cdd00ad9', 'Rita Tester', NULL),
-('prof-admin-0001', 'u-admin-0001', 'Alexander Vance', 'Registered ADMIN at Royal Solutions ERP command platform.'),
-('prof-client-0001', 'u-client-0001', 'David Miller', 'Registered CLIENT at Royal Solutions ERP command platform.'),
-('prof-manager-0001', 'u-manager-0001', 'Eleanor Sterling', 'Registered MANAGER at Royal Solutions ERP command platform.'),
-('prof-staff-0001', 'u-staff-0001', 'Marcus Chen', 'Registered STAFF at Royal Solutions ERP command platform.'),
-('prof-student-0001', 'u-student-0001', 'Jane Smith', 'Registered STUDENT at Royal Solutions ERP command platform.');
+INSERT INTO `profiles` (`id`, `user_id`, `user_type`, `full_name`, `bio`, `created_at`, `updated_at`) VALUES
+('b9a6c4d5-d5f0-497b-9a1e-446ce705e615', 'be015c0a-a318-455d-aa5e-6361c0310f90', 'MARKETER', 'Suki Sweeney', NULL, '2026-10-30 23:47:28', '2026-10-30 23:47:28'),
+('prof-admin-0001', 'u-admin-0001', 'ADMIN', 'Alexander Vance', 'Registered ADMIN at Royal Solutions ERP command platform.', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('prof-client-0001', 'u-client-0001', 'CLIENT', 'David Miller', 'Registered CLIENT at Royal Solutions ERP command platform.', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('prof-manager-0001', 'u-manager-0001', 'ADMIN', 'Eleanor Sterling', 'Registered ADMIN at Royal Solutions ERP command platform.', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('prof-staff-0001', 'u-staff-0001', 'STAFF', 'Marcus Chen', 'Registered STAFF at Royal Solutions ERP command platform.', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('prof-student-0001', 'u-student-0001', 'STUDENT', 'Jane Smith', 'Registered STUDENT at Royal Solutions ERP command platform.', '2026-10-26 18:13:05', '2026-10-31 08:38:02');
 
 -- --------------------------------------------------------
 
@@ -788,15 +889,16 @@ CREATE TABLE `projects` (
   `progress` int(11) DEFAULT 0,
   `category` varchar(100) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `proposal_id` varchar(36) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `projects`
 --
 
-INSERT INTO `projects` (`id`, `project_id`, `title`, `description`, `client_id`, `supervisor_id`, `status`, `budget`, `start_date`, `end_date`, `progress`, `category`, `created_at`, `updated_at`) VALUES
-('proj-001', 'PRJ-5501', 'Enterprise Fintech Dashboard & Payment Hub', 'Production development of client cloud platform.', 'client-rec-0001', 'staff-rec-0001', 'IN_PROGRESS', 14500.00, '2026-09-18 11:30:50', '2026-11-17 11:30:50', 45, 'Fintech SaaS', '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+INSERT INTO `projects` (`id`, `project_id`, `title`, `description`, `client_id`, `supervisor_id`, `status`, `budget`, `start_date`, `end_date`, `progress`, `category`, `created_at`, `updated_at`, `proposal_id`) VALUES
+('proj-001', 'PRJ-5501', 'Enterprise Fintech Dashboard & Payment Hub', 'Production development of client cloud platform.', 'client-rec-0001', 'staff-rec-0001', 'IN_PROGRESS', 14500.00, '2026-10-26 18:13:05', '2026-12-25 18:13:05', 45, 'Fintech SaaS', '2026-10-26 18:13:05', '2026-10-26 18:13:05', NULL);
 
 -- --------------------------------------------------------
 
@@ -812,15 +914,15 @@ CREATE TABLE `project_milestones` (
   `due_date` datetime NOT NULL,
   `completed` tinyint(1) DEFAULT 0,
   `completed_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `project_milestones`
 --
 
 INSERT INTO `project_milestones` (`id`, `project_id`, `title`, `description`, `due_date`, `completed`, `completed_at`) VALUES
-('ms-001', 'proj-001', 'Phase 1: Architecture & UI System', 'Glassmorphism dark theme interface layout.', '2026-09-11 11:30:50', 1, '2026-09-18 11:30:50'),
-('ms-002', 'proj-001', 'Phase 2: Core Data Models & API Hooks', 'MySQL parameterized query endpoints.', '2026-10-02 11:30:50', 0, NULL);
+('ms-001', 'proj-001', 'Phase 1: Architecture & UI System', 'Glassmorphism light interface layout.', '2026-10-19 18:13:05', 1, '2026-10-26 18:13:05'),
+('ms-002', 'proj-001', 'Phase 2: Core Data Models & API Hooks', 'MySQL parameterized query endpoints.', '2026-11-09 18:13:05', 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -834,14 +936,14 @@ CREATE TABLE `project_team_members` (
   `staff_id` varchar(36) NOT NULL,
   `role` varchar(100) NOT NULL,
   `join_date` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `project_team_members`
 --
 
 INSERT INTO `project_team_members` (`id`, `project_id`, `staff_id`, `role`, `join_date`) VALUES
-('ptm-001', 'proj-001', 'staff-rec-0001', 'Technical Lead & Supervisor', '2026-09-18 11:30:50');
+('ptm-001', 'proj-001', 'staff-rec-0001', 'Technical Lead & Supervisor', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -855,7 +957,7 @@ CREATE TABLE `project_updates` (
   `author` varchar(200) NOT NULL,
   `message` text NOT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -876,17 +978,18 @@ CREATE TABLE `proposals` (
   `services` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`services`)),
   `timeline` varchar(100) NOT NULL,
   `valid_until` datetime NOT NULL,
+  `response_date` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `response_date` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `proposals`
 --
 
-INSERT INTO `proposals` (`id`, `proposal_id`, `title`, `client_id`, `assigned_to`, `status`, `amount`, `category`, `description`, `services`, `timeline`, `valid_until`, `created_at`, `updated_at`, `response_date`) VALUES
-('prop-001', 'PROP-9021', 'Enterprise Fintech Dashboard & Payment Hub', 'client-rec-0001', 'staff-rec-0001', 'APPROVED', 14500.00, 'Fintech SaaS', 'Comprehensive ERP integration with Paystack, multi-currency wallets, and reporting ledgers.', '[\"Architecture Design\", \"Database Setup\", \"Payment Gateway Hook\", \"Quality Assurance\"]', '8 Weeks', '2026-10-02 11:30:50', '2026-09-18 11:30:50', '2026-09-18 11:30:50', NULL);
+INSERT INTO `proposals` (`id`, `proposal_id`, `title`, `client_id`, `assigned_to`, `status`, `amount`, `category`, `description`, `services`, `timeline`, `valid_until`, `response_date`, `created_at`, `updated_at`) VALUES
+('69f738bb-d52a-4aa6-9f84-4424018f50a2', 'PROP-69F738BB', 'Consequat Odio doloribus sed est qui labore voluptate magna excepteur', 'client-rec-0001', NULL, 'DRAFT', 0.00, 'Website Design / Revamp', 'Rem numquam deleniti', '[\"Website revamp \\/ redesign\",\"Esse Nam error nihi\",\"Something else\",\"Online payments\",\"Admin dashboard\",\"Reports & analytics\"]', 'ASAP', '2026-11-12 12:21:47', NULL, '2026-10-29 12:21:47', '2026-10-30 11:37:48'),
+('prop-001', 'PROP-9021', 'Enterprise Fintech Dashboard & Payment Hub', 'client-rec-0001', 'staff-rec-0001', 'APPROVED', 14500.00, 'Fintech SaaS', 'Comprehensive ERP integration with Paystack, multi-currency wallets, and reporting ledgers.', '[\"Architecture Design\", \"Database Setup\", \"Payment Gateway Hook\", \"Quality Assurance\"]', '8 Weeks', '2026-11-09 18:13:05', NULL, '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 -- --------------------------------------------------------
 
@@ -903,7 +1006,14 @@ CREATE TABLE `questionnaires` (
   `completed_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `questionnaires`
+--
+
+INSERT INTO `questionnaires` (`id`, `client_id`, `title`, `questions`, `responses`, `completed_at`, `created_at`, `updated_at`) VALUES
+('383f480c-959a-494a-9ca1-e8e7c32d0973', 'client-rec-0001', 'Consequat Odio doloribus sed est qui labore voluptate magna excepteur', '{\"title\":\"Project request\",\"version\":\"3.0\"}', '{\"inputs\":{\"project_title\":\"Consequat Odio doloribus sed est qui labore voluptate magna excepteur\",\"service\":\"website_redesign\",\"description\":\"Rem numquam deleniti\",\"features\":\"Esse Nam error nihi\\r\\nSomething else\\r\\nOnline payments\\r\\nAdmin dashboard\\r\\nReports & analytics\",\"current_site\":\"https:\\/\\/example.com\",\"references\":\"Aliquip aut atque do\",\"timeline\":\"asap\",\"budget_note\":\"Around 150,000\"},\"service_label\":\"Website revamp \\/ redesign\"}', '2026-10-29 12:21:47', '2026-10-29 12:21:47', '2026-10-29 12:21:47');
 
 -- --------------------------------------------------------
 
@@ -920,7 +1030,7 @@ CREATE TABLE `results` (
   `max_score` int(11) NOT NULL,
   `grade` varchar(10) NOT NULL,
   `exam_date` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -931,10 +1041,11 @@ CREATE TABLE `results` (
 CREATE TABLE `sessions` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `token` varchar(255) NOT NULL,
   `expires_at` datetime NOT NULL,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -952,7 +1063,7 @@ CREATE TABLE `staff` (
   `hire_date` datetime NOT NULL,
   `salary` decimal(15,2) DEFAULT NULL,
   `status` enum('ACTIVE','INACTIVE','ON_LEAVE','TERMINATED') DEFAULT 'ACTIVE'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `staff`
@@ -975,7 +1086,7 @@ CREATE TABLE `staff_updates` (
   `description` text NOT NULL,
   `date` datetime DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -992,16 +1103,14 @@ CREATE TABLE `students` (
   `lecture_mode` enum('ONLINE','OFFLINE','HYBRID') DEFAULT 'ONLINE',
   `payment_method` varchar(50) DEFAULT NULL,
   `profile_complete` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `students`
 --
 
 INSERT INTO `students` (`id`, `user_id`, `student_id`, `enrollment_date`, `preferred_time`, `lecture_mode`, `payment_method`, `profile_complete`) VALUES
-('7af43d8d-098f-4833-a618-3452d1604249', '2444401c-ef5e-4fa5-bc84-90ec4441714d', 'STUD-001', '2026-08-11 22:46:45', NULL, 'ONLINE', NULL, 0),
-('88c6101d-7d73-4b8e-927f-b2afc9289564', '208016b0-2eec-4a17-a4d0-1dc1a03e14a7', 'STUD-52515', '2026-08-14 01:38:33', NULL, 'OFFLINE', NULL, 0),
-('stud-rec-0001', 'u-student-0001', 'STUD-88210', '2026-09-18 11:30:50', NULL, 'ONLINE', 'PAYSTACK', 1);
+('stud-rec-0001', 'u-student-0001', 'STUD-88210', '2026-10-26 18:13:05', NULL, 'ONLINE', 'PAYSTACK', 1);
 
 -- --------------------------------------------------------
 
@@ -1023,7 +1132,7 @@ CREATE TABLE `support_tickets` (
   `resolved_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -1038,42 +1147,7 @@ CREATE TABLE `ticket_responses` (
   `message` text NOT NULL,
   `is_staff` tinyint(1) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` varchar(36) NOT NULL,
-  `email` varchar(191) NOT NULL,
-  `username` varchar(191) DEFAULT NULL,
-  `first_name` varchar(100) NOT NULL,
-  `last_name` varchar(100) NOT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `avatar` varchar(255) DEFAULT NULL,
-  `status` enum('ACTIVE','INACTIVE','SUSPENDED','PENDING_VERIFICATION') DEFAULT 'ACTIVE',
-  `role` enum('STUDENT','CLIENT','STAFF','ADMIN','MANAGER') DEFAULT 'STUDENT',
-  `referral_code` varchar(50) DEFAULT NULL,
-  `last_active` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `email_verified` tinyint(1) DEFAULT 0,
-  `password_hash` varchar(255) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
-('u-admin-0001', 'admin@royalsolutions.com', 'admin', 'Alexander', 'Vance', '+1 (555) 019-2831', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'ADMIN', NULL, '2026-10-01 10:17:34', 1, 'dev123', '2026-09-18 11:30:50', '2026-10-01 10:17:34'),
-('u-client-0001', 'client@royalsolutions.com', 'client_acme', 'David', 'Miller', '+1 (555) 016-5590', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'CLIENT', NULL, '2026-10-01 10:17:36', 1, 'dev123', '2026-09-18 11:30:50', '2026-10-01 10:17:36'),
-('u-manager-0001', 'manager@royalsolutions.com', 'manager', 'Eleanor', 'Sterling', '+1 (555) 018-9921', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'MANAGER', NULL, '2026-09-18 12:00:52', 1, 'dev123', '2026-09-18 11:30:50', '2026-09-18 12:00:52'),
-('u-staff-0001', 'staff@royalsolutions.com', 'staff_instructor', 'Marcus', 'Chen', '+1 (555) 014-4482', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'STAFF', NULL, '2026-10-01 10:17:34', 1, 'dev123', '2026-09-18 11:30:50', '2026-10-01 10:17:34'),
-('u-student-0001', 'student@royalsolutions.com', 'student_jane', 'Jane', 'Smith', '+1 (555) 012-7711', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'STUDENT', NULL, '2026-10-04 04:38:31', 1, 'dev123', '2026-09-18 11:30:50', '2026-10-04 04:38:31');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -1097,15 +1171,15 @@ CREATE TABLE `users_admin` (
   `password_hash` varchar(255) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users_admin`
 --
 
 INSERT INTO `users_admin` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
-('u-admin-0001', 'admin@royalsolutions.com', 'admin', 'Alexander', 'Vance', '+1 (555) 019-2831', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'ADMIN', NULL, '2026-09-18 12:00:52', 1, 'dev123', '2026-09-18 11:30:50', '2026-09-18 12:00:52'),
-('u-manager-0001', 'manager@royalsolutions.com', 'manager', 'Eleanor', 'Sterling', '+1 (555) 018-9921', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'MANAGER', NULL, '2026-09-18 12:00:52', 1, 'dev123', '2026-09-18 11:30:50', '2026-09-18 12:00:52');
+('u-admin-0001', 'admin@royalsolutions.com', 'admin', 'Alexander', 'Vance', '+1 (555) 019-2831', NULL, 'ACTIVE', 'ADMIN', NULL, '2026-10-31 08:36:49', 1, 'dev123', '2026-10-26 18:13:05', '2026-10-31 08:36:49'),
+('u-manager-0001', 'manager@royalsolutions.com', 'manager', 'Eleanor', 'Sterling', '+1 (555) 018-9921', NULL, 'ACTIVE', 'ADMIN', NULL, '2026-10-31 08:36:49', 1, 'dev123', '2026-10-26 18:13:05', '2026-10-31 08:36:49');
 
 -- --------------------------------------------------------
 
@@ -1129,15 +1203,47 @@ CREATE TABLE `users_client` (
   `password_hash` varchar(255) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users_client`
 --
 
 INSERT INTO `users_client` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
-('ada31420-9318-4814-8409-6db7cdd00ad9', 'rita.tester@example.com', NULL, 'Rita', 'Tester', '+2348011112222', NULL, 'ACTIVE', 'CLIENT', NULL, '2026-10-01 07:12:57', 1, 'client123', '2026-10-01 07:12:57', '2026-10-01 07:12:57'),
-('u-client-0001', 'client@royalsolutions.com', 'client_acme', 'David', 'Miller', '+1 (555) 016-5590', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'CLIENT', NULL, '2026-09-18 12:00:52', 1, 'dev123', '2026-09-18 11:30:50', '2026-09-18 12:00:52');
+('u-client-0001', 'client@royalsolutions.com', 'client_acme', 'David', 'Miller', '+1 (555) 016-5590', NULL, 'ACTIVE', 'CLIENT', NULL, '2026-10-31 08:36:49', 1, 'dev123', '2026-10-26 18:13:05', '2026-10-31 08:36:49');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users_marketer`
+--
+
+CREATE TABLE `users_marketer` (
+  `id` varchar(36) NOT NULL,
+  `email` varchar(191) NOT NULL,
+  `username` varchar(191) DEFAULT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
+  `status` enum('ACTIVE','INACTIVE','SUSPENDED','PENDING_VERIFICATION') DEFAULT 'ACTIVE',
+  `role` enum('MARKETER') DEFAULT 'MARKETER',
+  `referral_code` varchar(50) DEFAULT NULL,
+  `project_commission_rate` decimal(5,2) DEFAULT 10.00,
+  `student_commission_rate` decimal(5,2) DEFAULT 10.00,
+  `last_active` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `email_verified` tinyint(1) DEFAULT 0,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `users_marketer`
+--
+
+INSERT INTO `users_marketer` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `project_commission_rate`, `student_commission_rate`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
+('be015c0a-a318-455d-aa5e-6361c0310f90', 'sakan@example.com', NULL, 'Suki', 'Sweeney', '+1 (497) 931-9817', NULL, 'ACTIVE', 'MARKETER', 'RS89821B', 7.00, 5.00, '2026-10-31 07:12:56', 0, 'dev123', '2026-10-30 23:47:28', '2026-10-31 07:12:56');
 
 -- --------------------------------------------------------
 
@@ -1161,14 +1267,14 @@ CREATE TABLE `users_staff` (
   `password_hash` varchar(255) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users_staff`
 --
 
 INSERT INTO `users_staff` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
-('u-staff-0001', 'staff@royalsolutions.com', 'staff_instructor', 'Marcus', 'Chen', '+1 (555) 014-4482', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'STAFF', NULL, '2026-09-18 12:00:52', 1, 'dev123', '2026-09-18 11:30:50', '2026-09-18 12:00:52');
+('u-staff-0001', 'staff@royalsolutions.com', 'staff_instructor', 'Marcus', 'Chen', '+1 (555) 014-4482', NULL, 'ACTIVE', 'STAFF', NULL, '2026-10-31 08:36:49', 1, 'dev123', '2026-10-26 18:13:05', '2026-10-31 08:36:49');
 
 -- --------------------------------------------------------
 
@@ -1192,14 +1298,14 @@ CREATE TABLE `users_student` (
   `password_hash` varchar(255) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users_student`
 --
 
 INSERT INTO `users_student` (`id`, `email`, `username`, `first_name`, `last_name`, `phone`, `avatar`, `status`, `role`, `referral_code`, `last_active`, `email_verified`, `password_hash`, `created_at`, `updated_at`) VALUES
-('u-student-0001', 'student@royalsolutions.com', 'student_jane', 'Jane', 'Smith', '+1 (555) 012-7711', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop', 'ACTIVE', 'STUDENT', NULL, '2026-10-04 04:31:48', 1, 'dev123', '2026-09-18 11:30:50', '2026-10-04 04:31:48');
+('u-student-0001', 'student@royalsolutions.com', 'student_jane', 'Jane', 'Smith', '+1 (555) 012-7711', NULL, 'ACTIVE', 'STUDENT', NULL, '2026-10-31 08:43:40', 1, 'dev123', '2026-10-26 18:13:05', '2026-10-31 08:43:40');
 
 -- --------------------------------------------------------
 
@@ -1210,7 +1316,7 @@ INSERT INTO `users_student` (`id`, `email`, `username`, `first_name`, `last_name
 CREATE TABLE `user_settings` (
   `id` varchar(36) NOT NULL,
   `user_id` varchar(36) NOT NULL,
-  `theme` varchar(50) DEFAULT 'system',
+  `user_type` enum('STUDENT','CLIENT','STAFF','ADMIN','MARKETER') NOT NULL,
   `language` varchar(50) DEFAULT 'english',
   `timezone` varchar(100) DEFAULT 'Africa/Lagos',
   `email_notifications` tinyint(1) DEFAULT 1,
@@ -1221,7 +1327,7 @@ CREATE TABLE `user_settings` (
   `class_reminders` tinyint(1) DEFAULT 1,
   `announcements` tinyint(1) DEFAULT 1,
   `marketing_emails` tinyint(1) DEFAULT 0,
-  `privacy_visibility` varchar(50) DEFAULT 'public',
+  `profile_visibility` varchar(50) DEFAULT 'public',
   `show_email` tinyint(1) DEFAULT 0,
   `show_phone` tinyint(1) DEFAULT 0,
   `data_sharing` tinyint(1) DEFAULT 1,
@@ -1231,19 +1337,19 @@ CREATE TABLE `user_settings` (
   `session_timeout` varchar(50) DEFAULT '30',
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `user_settings`
 --
 
-INSERT INTO `user_settings` (`id`, `user_id`, `theme`, `language`, `timezone`, `email_notifications`, `sms_notifications`, `push_notifications`, `assignment_reminders`, `grade_alerts`, `class_reminders`, `announcements`, `marketing_emails`, `privacy_visibility`, `show_email`, `show_phone`, `data_sharing`, `analytics`, `two_factor_enabled`, `login_alerts`, `session_timeout`, `created_at`, `updated_at`) VALUES
-('f025dae6-e871-4028-bd9c-1b49e65f1f06', 'ada31420-9318-4814-8409-6db7cdd00ad9', 'system', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-01 07:12:57', '2026-10-01 07:12:57'),
-('set-admin-0001', 'u-admin-0001', 'system', 'english', 'Africa/Lagos', 0, 0, 0, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-09-18 11:30:50', '2026-10-01 09:52:58'),
-('set-client-0001', 'u-client-0001', 'system', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('set-manager-0001', 'u-manager-0001', 'system', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('set-staff-0001', 'u-staff-0001', 'system', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-09-18 11:30:50', '2026-09-18 11:30:50'),
-('set-student-0001', 'u-student-0001', 'system', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-09-18 11:30:50', '2026-09-18 11:30:50');
+INSERT INTO `user_settings` (`id`, `user_id`, `user_type`, `language`, `timezone`, `email_notifications`, `sms_notifications`, `push_notifications`, `assignment_reminders`, `grade_alerts`, `class_reminders`, `announcements`, `marketing_emails`, `profile_visibility`, `show_email`, `show_phone`, `data_sharing`, `analytics`, `two_factor_enabled`, `login_alerts`, `session_timeout`, `created_at`, `updated_at`) VALUES
+('6c562826-379f-465e-ade0-75edd8703cdc', 'be015c0a-a318-455d-aa5e-6361c0310f90', 'MARKETER', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-30 23:47:28', '2026-10-30 23:47:28'),
+('set-admin-0001', 'u-admin-0001', 'ADMIN', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('set-client-0001', 'u-client-0001', 'CLIENT', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('set-manager-0001', 'u-manager-0001', 'ADMIN', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('set-staff-0001', 'u-staff-0001', 'STAFF', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-26 18:13:05', '2026-10-26 18:13:05'),
+('set-student-0001', 'u-student-0001', 'STUDENT', 'english', 'Africa/Lagos', 1, 0, 1, 1, 1, 1, 1, 0, 'public', 0, 0, 1, 1, 0, 1, '30', '2026-10-26 18:13:05', '2026-10-26 18:13:05');
 
 --
 -- Indexes for dumped tables
@@ -1254,7 +1360,7 @@ INSERT INTO `user_settings` (`id`, `user_id`, `theme`, `language`, `timezone`, `
 --
 ALTER TABLE `activities`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_user_type` (`user_id`,`user_type`);
 
 --
 -- Indexes for table `assessments`
@@ -1284,7 +1390,7 @@ ALTER TABLE `attendance`
 --
 ALTER TABLE `balances`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_user_type` (`user_id`,`user_type`);
 
 --
 -- Indexes for table `certificates`
@@ -1333,7 +1439,8 @@ ALTER TABLE `class_students`
 ALTER TABLE `clients`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `user_id` (`user_id`),
-  ADD UNIQUE KEY `client_id` (`client_id`);
+  ADD UNIQUE KEY `client_id` (`client_id`),
+  ADD KEY `idx_clients_referred_by` (`referred_by`);
 
 --
 -- Indexes for table `complaints`
@@ -1386,7 +1493,8 @@ ALTER TABLE `document_versions`
 ALTER TABLE `enrollments`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_student_course` (`student_id`,`course_id`),
-  ADD KEY `course_id` (`course_id`);
+  ADD KEY `course_id` (`course_id`),
+  ADD KEY `fk_enrollments_batch` (`batch_id`);
 
 --
 -- Indexes for table `expense_records`
@@ -1453,7 +1561,25 @@ ALTER TABLE `lessons`
 ALTER TABLE `lesson_completions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_student_lesson` (`student_id`,`lesson_id`),
-  ADD KEY `fk_lc_lesson` (`lesson_id`);
+  ADD KEY `lesson_id` (`lesson_id`);
+
+--
+-- Indexes for table `marketer_commissions`
+--
+ALTER TABLE `marketer_commissions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `project_id` (`project_id`),
+  ADD UNIQUE KEY `referral_id` (`referral_id`),
+  ADD KEY `marketer_id` (`marketer_id`);
+
+--
+-- Indexes for table `marketer_student_referrals`
+--
+ALTER TABLE `marketer_student_referrals`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_referral_email` (`email`),
+  ADD KEY `marketer_id` (`marketer_id`),
+  ADD KEY `course_id` (`course_id`);
 
 --
 -- Indexes for table `meetings`
@@ -1475,9 +1601,10 @@ ALTER TABLE `modules`
 --
 ALTER TABLE `notifications`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_user_read` (`user_id`,`is_read`),
-  ADD KEY `idx_user_created` (`user_id`,`created_at`),
-  ADD KEY `idx_user_archived` (`user_id`,`archived`);
+  ADD KEY `idx_user_type` (`user_id`,`user_type`),
+  ADD KEY `idx_user_read` (`user_id`,`user_type`,`is_read`),
+  ADD KEY `idx_user_created` (`user_id`,`user_type`,`created_at`),
+  ADD KEY `idx_user_archived` (`user_id`,`user_type`,`archived`);
 
 --
 -- Indexes for table `payments`
@@ -1503,7 +1630,8 @@ ALTER TABLE `performance_reviews`
 --
 ALTER TABLE `profiles`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `user_id` (`user_id`);
+  ADD UNIQUE KEY `user_id` (`user_id`),
+  ADD KEY `idx_user_type` (`user_id`,`user_type`);
 
 --
 -- Indexes for table `projects`
@@ -1566,7 +1694,7 @@ ALTER TABLE `results`
 ALTER TABLE `sessions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `token` (`token`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_user_type` (`user_id`,`user_type`);
 
 --
 -- Indexes for table `staff`
@@ -1610,15 +1738,6 @@ ALTER TABLE `ticket_responses`
   ADD KEY `ticket_id` (`ticket_id`);
 
 --
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `referral_code` (`referral_code`);
-
---
 -- Indexes for table `users_admin`
 --
 ALTER TABLE `users_admin`
@@ -1631,6 +1750,15 @@ ALTER TABLE `users_admin`
 -- Indexes for table `users_client`
 --
 ALTER TABLE `users_client`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `username` (`username`),
+  ADD UNIQUE KEY `referral_code` (`referral_code`);
+
+--
+-- Indexes for table `users_marketer`
+--
+ALTER TABLE `users_marketer`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `email` (`email`),
   ADD UNIQUE KEY `username` (`username`),
@@ -1659,7 +1787,8 @@ ALTER TABLE `users_student`
 --
 ALTER TABLE `user_settings`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `user_id` (`user_id`);
+  ADD UNIQUE KEY `user_id` (`user_id`),
+  ADD KEY `idx_user_type` (`user_id`,`user_type`);
 
 --
 -- Constraints for dumped tables
@@ -1720,6 +1849,12 @@ ALTER TABLE `class_students`
   ADD CONSTRAINT `class_students_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `clients`
+--
+ALTER TABLE `clients`
+  ADD CONSTRAINT `clients_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users_client` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `complaints`
 --
 ALTER TABLE `complaints`
@@ -1756,7 +1891,8 @@ ALTER TABLE `document_versions`
 --
 ALTER TABLE `enrollments`
   ADD CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_enrollments_batch` FOREIGN KEY (`batch_id`) REFERENCES `classes` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `forum_posts`
@@ -1802,8 +1938,23 @@ ALTER TABLE `lessons`
 -- Constraints for table `lesson_completions`
 --
 ALTER TABLE `lesson_completions`
-  ADD CONSTRAINT `fk_lc_lesson` FOREIGN KEY (`lesson_id`) REFERENCES `lessons` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_lc_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `lesson_completions_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `lesson_completions_ibfk_2` FOREIGN KEY (`lesson_id`) REFERENCES `lessons` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `marketer_commissions`
+--
+ALTER TABLE `marketer_commissions`
+  ADD CONSTRAINT `marketer_commissions_ibfk_1` FOREIGN KEY (`marketer_id`) REFERENCES `users_marketer` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `marketer_commissions_ibfk_2` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `marketer_commissions_ibfk_3` FOREIGN KEY (`referral_id`) REFERENCES `marketer_student_referrals` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `marketer_student_referrals`
+--
+ALTER TABLE `marketer_student_referrals`
+  ADD CONSTRAINT `marketer_student_referrals_ibfk_1` FOREIGN KEY (`marketer_id`) REFERENCES `users_marketer` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `marketer_student_referrals_ibfk_2` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `meetings`
@@ -1880,10 +2031,22 @@ ALTER TABLE `results`
   ADD CONSTRAINT `results_ibfk_2` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `staff`
+--
+ALTER TABLE `staff`
+  ADD CONSTRAINT `staff_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users_staff` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `staff_updates`
 --
 ALTER TABLE `staff_updates`
   ADD CONSTRAINT `staff_updates_ibfk_1` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `students`
+--
+ALTER TABLE `students`
+  ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users_student` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `support_tickets`

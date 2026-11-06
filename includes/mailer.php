@@ -27,11 +27,11 @@ function mail_is_configured($mail)
 }
 
 /**
- * Send an HTML email.
+ * Send an HTML email, optionally with attachments ([['name' => ..., 'type' => ..., 'content' => bytes], ...]).
  *
  * @return array ['ok' => bool, 'simulated' => bool, 'error' => string|null]
  */
-function send_email($to, $to_name, $subject, $html, $text = null)
+function send_email($to, $to_name, $subject, $html, $text = null, $attachments = [])
 {
     $mail = mail_config();
     $text = $text ?? trim(html_entity_decode(strip_tags(preg_replace('/<(br|\/p|\/tr|\/h\d)[^>]*>/i', "\n", $html)), ENT_QUOTES, 'UTF-8'));
@@ -42,13 +42,18 @@ function send_email($to, $to_name, $subject, $html, $text = null)
             @mkdir($dir, 0775, true);
         }
         $file = $dir . '/' . date('Ymd_His') . '_' . preg_replace('/[^a-z0-9]+/i', '_', $to) . '.html';
-        @file_put_contents($file, "<!-- To: $to_name <$to> | Subject: $subject -->\n" . $html);
+        if (@file_put_contents($file, "<!-- To: $to_name <$to> | Subject: $subject -->\n" . $html) === false) {
+            return ['ok' => false, 'simulated' => true, 'error' => 'SMTP is not configured and uploads/mail_outbox is not writable'];
+        }
+        foreach ($attachments as $a) {
+            @file_put_contents(substr($file, 0, -5) . '_' . preg_replace('/[^A-Za-z0-9._-]+/', '_', $a['name']), $a['content']);
+        }
         @file_put_contents($dir . '/outbox.log', "[" . date('Y-m-d H:i:s') . "] SIMULATED mail to $to: $subject (" . basename($file) . ")\n", FILE_APPEND);
         return ['ok' => true, 'simulated' => true, 'error' => null];
     }
 
     try {
-        smtp_deliver($mail, $to, $to_name, $subject, $html, $text);
+        smtp_deliver($mail, $to, $to_name, $subject, $html, $text, $attachments);
         return ['ok' => true, 'simulated' => false, 'error' => null];
     } catch (Exception $e) {
         dev_log("SMTP delivery to $to failed: " . $e->getMessage(), 'error');
@@ -56,7 +61,7 @@ function send_email($to, $to_name, $subject, $html, $text = null)
     }
 }
 
-function smtp_deliver($mail, $to, $to_name, $subject, $html, $text)
+function smtp_deliver($mail, $to, $to_name, $subject, $html, $text, $attachments = [])
 {
     $host = $mail['host'];
     $port = (int) ($mail['port'] ?? 587);
@@ -115,13 +120,27 @@ function smtp_deliver($mail, $to, $to_name, $subject, $html, $text)
             'Subject: =?UTF-8?B?' . base64_encode($subject) . '?=',
             'Message-ID: <' . bin2hex(random_bytes(16)) . '@' . (explode('@', $from)[1] ?? 'localhost') . '>',
             'MIME-Version: 1.0',
-            "Content-Type: multipart/alternative; boundary=\"$boundary\"",
         ];
         $body = "--$boundary\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
             . chunk_split(base64_encode($text))
             . "--$boundary\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
             . chunk_split(base64_encode($html))
             . "--$boundary--";
+        if ($attachments) {
+            // multipart/mixed wrapping the text/html alternative plus each attachment
+            $mixed = 'm_' . bin2hex(random_bytes(12));
+            $parts = "--$mixed\r\nContent-Type: multipart/alternative; boundary=\"$boundary\"\r\n\r\n" . $body . "\r\n";
+            foreach ($attachments as $a) {
+                $fname = preg_replace('/[^A-Za-z0-9._-]+/', '_', $a['name']);
+                $parts .= "--$mixed\r\nContent-Type: " . ($a['type'] ?? 'application/octet-stream') . "; name=\"$fname\"\r\n"
+                    . "Content-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"$fname\"\r\n\r\n"
+                    . chunk_split(base64_encode($a['content']));
+            }
+            $body = $parts . "--$mixed--";
+            $headers[] = "Content-Type: multipart/mixed; boundary=\"$mixed\"";
+        } else {
+            $headers[] = "Content-Type: multipart/alternative; boundary=\"$boundary\"";
+        }
 
         // Base64 bodies never start a line with '.', so no dot-stuffing is needed.
         $cmd(implode("\r\n", $headers) . "\r\n\r\n" . $body . "\r\n.", 250);

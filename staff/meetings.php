@@ -2,6 +2,7 @@
 // staff/meetings.php
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_permission('meetings');
 
 $user = current_user();
 $page_title = "Staff Meeting Schedule";

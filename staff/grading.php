@@ -1,25 +1,13 @@
 <?php
-// staff/grading.php
+// staff/grading.php - grade submitted assignments. Instructors see their own batches/courses;
+// admins reach the same page (all assignments) through admin/grading.php.
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
+require_permission('teach');
 
 $user = current_user();
-$page_title = "Staff - Grading Center";
-
-// Get staff ID
-$staff_id = null;
-try {
-    $stmt = $conn->prepare("SELECT id FROM staff WHERE user_id = ?");
-    $stmt->bind_param("s", $user['id']);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    if ($row = $res->fetch_assoc()) {
-        $staff_id = $row['id'];
-    }
-    $stmt->close();
-} catch (Exception $e) {
-    // Ignore
-}
+$page_title = "Grading Center";
+$scope = teaching_assignment_scope('a', 'c');
 
 $errors = [];
 $success_msg = "";
@@ -38,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $errors[] = "Invalid assignment selection.";
     } else if ($score < 0 || $score > 100) {
         $errors[] = "Grade score must be between 0 and 100.";
+    } else if ($conn->query("SELECT 1 FROM assignments a JOIN courses c ON c.id = a.course_id WHERE a.id = '" . $conn->real_escape_string($assignment_id) . "' AND $scope")->num_rows === 0) {
+        $errors[] = "That assignment is not in one of your classes.";
     } else {
         try {
             $stmt = $conn->prepare("UPDATE assignments SET grade = ?, feedback = ?, status = 'GRADED', graded_at = NOW() WHERE id = ?");
@@ -81,9 +71,8 @@ try {
                             JOIN students s ON a.student_id = s.id 
                             JOIN users_student u ON s.user_id = u.id 
                             JOIN courses c ON a.course_id = c.id 
-                            WHERE c.instructor_id = ? AND a.status = 'SUBMITTED' 
+                            WHERE $scope AND a.status = 'SUBMITTED' 
                             ORDER BY a.submitted_at ASC");
-    $stmt->bind_param("s", $staff_id);
     $stmt->execute();
     $res = $stmt->get_result();
     while ($row = $res->fetch_assoc()) {
@@ -102,9 +91,8 @@ try {
                             JOIN students s ON a.student_id = s.id 
                             JOIN users_student u ON s.user_id = u.id 
                             JOIN courses c ON a.course_id = c.id 
-                            WHERE c.instructor_id = ? AND a.status = 'GRADED' 
+                            WHERE $scope AND a.status = 'GRADED' 
                             ORDER BY a.graded_at DESC LIMIT 10");
-    $stmt->bind_param("s", $staff_id);
     $stmt->execute();
     $res = $stmt->get_result();
     while ($row = $res->fetch_assoc()) {

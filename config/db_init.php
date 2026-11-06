@@ -737,6 +737,7 @@ function init_database($conn)
   migrate_marketers($conn);
   migrate_service_categories($conn);
   migrate_clear_stock_avatars($conn);
+  migrate_staff_roles($conn);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
   $check = $conn->query("SELECT COUNT(*) as count FROM users_admin WHERE id = 'u-admin-0001'");
@@ -969,6 +970,124 @@ function migrate_clear_stock_avatars($conn)
     }
     $conn->query("UPDATE `$t` SET avatar = NULL WHERE avatar LIKE 'https://images.unsplash.com/%'");
   }
+}
+
+function add_column_if_missing($conn, $table, $column, $ddl)
+{
+  $col = $conn->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
+  if ($col && $col->num_rows === 0) {
+    $conn->query("ALTER TABLE `$table` ADD COLUMN $ddl");
+  }
+}
+
+/**
+ * Additive migration: staff roles (instructor / marketing & sales / customer service / head admin),
+ * negotiated course fees, payment certification, admin-authorized certificates, batch assignments,
+ * instructor messages, and the sales pipeline (prospects, appointments/demos, sales).
+ */
+function migrate_staff_roles($conn)
+{
+  $staff = $conn->query("SHOW TABLES LIKE 'staff'");
+  $enr = $conn->query("SHOW TABLES LIKE 'enrollments'");
+  if (!$staff || $staff->num_rows === 0 || !$enr || $enr->num_rows === 0) {
+    return; // fresh install: Phase 3 hasn't created the schema yet
+  }
+  // class_messages is created last, so its presence means everything before it is done.
+  $done = $conn->query("SHOW TABLES LIKE 'class_messages'");
+  if ($done && $done->num_rows > 0) {
+    return;
+  }
+
+  add_column_if_missing($conn, 'staff', 'staff_role', "staff_role ENUM('INSTRUCTOR', 'MARKETING', 'CUSTOMER_SERVICE', 'HEAD_ADMIN') NOT NULL DEFAULT 'INSTRUCTOR' AFTER position");
+
+  // The fee actually agreed with the student (course price unless negotiated). amount_due = agreed_fee - total_paid.
+  $col = $conn->query("SHOW COLUMNS FROM enrollments LIKE 'agreed_fee'");
+  if ($col && $col->num_rows === 0) {
+    $conn->query("ALTER TABLE enrollments ADD COLUMN agreed_fee DECIMAL(15,2) NULL AFTER payment_type");
+    $conn->query("UPDATE enrollments SET agreed_fee = total_paid + amount_due");
+  }
+  add_column_if_missing($conn, 'enrollments', 'payment_certified_at', "payment_certified_at DATETIME NULL");
+  add_column_if_missing($conn, 'enrollments', 'payment_certified_by', "payment_certified_by VARCHAR(36) NULL");
+
+  add_column_if_missing($conn, 'certificates', 'enrollment_id', "enrollment_id VARCHAR(36) NULL, ADD INDEX idx_cert_enrollment (enrollment_id)");
+  add_column_if_missing($conn, 'certificates', 'authorized_by', "authorized_by VARCHAR(36) NULL");
+
+  // Assignments sent to a whole batch: one row per student, tagged with the batch and sender.
+  add_column_if_missing($conn, 'assignments', 'class_id', "class_id VARCHAR(36) NULL, ADD INDEX idx_assign_class (class_id)");
+  add_column_if_missing($conn, 'assignments', 'created_by', "created_by VARCHAR(36) NULL");
+
+  $conn->query("CREATE TABLE IF NOT EXISTS prospects (
+          id VARCHAR(36) PRIMARY KEY,
+          full_name VARCHAR(200) NOT NULL,
+          email VARCHAR(191) NULL,
+          phone VARCHAR(30) NULL,
+          company VARCHAR(200) NULL,
+          source ENUM('FIELD_VISIT', 'EMAIL_MARKETING', 'SOCIAL_MEDIA', 'PHONE_CALL', 'WALK_IN', 'REFERRAL', 'WEBSITE', 'EVENT', 'OTHER') NOT NULL DEFAULT 'OTHER',
+          interest_type ENUM('COURSE', 'SERVICE', 'OTHER') NOT NULL DEFAULT 'COURSE',
+          course_id VARCHAR(36) NULL,
+          service VARCHAR(100) NULL,
+          status ENUM('NEW', 'CONTACTED', 'APPOINTMENT', 'DEMO', 'NEGOTIATION', 'WON', 'LOST') NOT NULL DEFAULT 'NEW',
+          estimated_value DECIMAL(15,2) NULL,
+          next_follow_up DATE NULL,
+          notes TEXT NULL,
+          created_by VARCHAR(36) NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_prospect_status (status),
+          FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+  $conn->query("CREATE TABLE IF NOT EXISTS sales_appointments (
+          id VARCHAR(36) PRIMARY KEY,
+          prospect_id VARCHAR(36) NOT NULL,
+          type ENUM('APPOINTMENT', 'DEMO') NOT NULL DEFAULT 'APPOINTMENT',
+          scheduled_at DATETIME NOT NULL,
+          location VARCHAR(255) NULL,
+          notes TEXT NULL,
+          status ENUM('BOOKED', 'HELD', 'NO_SHOW', 'CANCELLED') NOT NULL DEFAULT 'BOOKED',
+          outcome TEXT NULL,
+          created_by VARCHAR(36) NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_appt_when (scheduled_at),
+          FOREIGN KEY (prospect_id) REFERENCES prospects(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+  $conn->query("CREATE TABLE IF NOT EXISTS sales_records (
+          id VARCHAR(36) PRIMARY KEY,
+          prospect_id VARCHAR(36) NULL,
+          sale_type ENUM('COURSE', 'SERVICE', 'OTHER') NOT NULL DEFAULT 'COURSE',
+          course_id VARCHAR(36) NULL,
+          student_id VARCHAR(36) NULL,
+          customer_name VARCHAR(200) NOT NULL,
+          description VARCHAR(255) NULL,
+          amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+          sale_date DATE NOT NULL,
+          notes TEXT NULL,
+          recorded_by VARCHAR(36) NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_sale_date (sale_date),
+          FOREIGN KEY (prospect_id) REFERENCES prospects(id) ON DELETE SET NULL,
+          FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+  // Messages from instructors/admins to a whole batch (student_id NULL) or one student. Keep last.
+  $conn->query("CREATE TABLE IF NOT EXISTS class_messages (
+          id VARCHAR(36) PRIMARY KEY,
+          class_id VARCHAR(36) NULL,
+          student_id VARCHAR(36) NULL,
+          sender_id VARCHAR(36) NOT NULL,
+          sender_name VARCHAR(200) NOT NULL,
+          subject VARCHAR(200) NOT NULL,
+          message TEXT NOT NULL,
+          recipients INT NOT NULL DEFAULT 0,
+          emailed TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_msg_class (class_id),
+          INDEX idx_msg_student (student_id),
+          FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+          FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 }
 
 /**
