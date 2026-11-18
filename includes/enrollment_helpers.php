@@ -34,10 +34,14 @@ function resolve_enrollment_schedule($conn, $course_id, $exclude_enrollment_id =
     $end = trim($_POST['end_date'] ?? '');
 
     if ($batch_id !== '') {
-        $stmt = $conn->prepare("SELECT b.start_date, b.end_date, b.capacity, b.status,
+        // A batch takes students of its main course and of any course listed in class_courses;
+        // the latter leave on their own end date (e.g. Frontend students in a Fullstack batch).
+        $stmt = $conn->prepare("SELECT b.start_date, COALESCE(cc.end_date, b.end_date) AS end_date, b.capacity, b.status,
                                        (SELECT COUNT(*) FROM enrollments e WHERE e.batch_id = b.id AND e.id <> ?) AS enrolled
-                                FROM classes b WHERE b.id = ? AND b.course_id = ?");
-        $stmt->bind_param("sss", $exclude_enrollment_id, $batch_id, $course_id);
+                                FROM classes b
+                                LEFT JOIN class_courses cc ON cc.class_id = b.id AND cc.course_id = ?
+                                WHERE b.id = ? AND (b.course_id = ? OR cc.course_id IS NOT NULL)");
+        $stmt->bind_param("ssss", $exclude_enrollment_id, $course_id, $batch_id, $course_id);
         $stmt->execute();
         $batch = $stmt->get_result()->fetch_assoc();
         $stmt->close();
@@ -53,11 +57,33 @@ function resolve_enrollment_schedule($conn, $course_id, $exclude_enrollment_id =
     return [$batch_id !== '' ? $batch_id : null, date('Y-m-d', strtotime($start)), date('Y-m-d', strtotime($end))];
 }
 
+/**
+ * Which courses each batch takes and when each course's students leave it:
+ * [class_id => [course_id => end Y-m-d or '']]. The main course ends with the batch.
+ */
+function batch_course_ends($conn)
+{
+    $fmt = fn($d) => $d ? date('Y-m-d', strtotime($d)) : '';
+    $map = [];
+    $res = $conn->query("SELECT id, course_id, end_date FROM classes");
+    while ($r = $res->fetch_assoc()) $map[$r['id']][$r['course_id']] = $fmt($r['end_date']);
+    $res = $conn->query("SELECT cc.class_id, cc.course_id, COALESCE(cc.end_date, cl.end_date) AS end_date
+                         FROM class_courses cc JOIN classes cl ON cl.id = cc.class_id");
+    while ($r = $res->fetch_assoc()) $map[$r['class_id']][$r['course_id']] = $fmt($r['end_date']);
+    return $map;
+}
+
 // Keep the batch roster (class_students, used by staff attendance) in step with the enrollment's batch.
 function sync_batch_roster($conn, $student_pk, $course_id, $batch_id)
 {
-    $stmt = $conn->prepare("DELETE cs FROM class_students cs JOIN classes cl ON cl.id = cs.class_id WHERE cs.student_id = ? AND cl.course_id = ? AND (? IS NULL OR cs.class_id <> ?)");
-    $stmt->bind_param("ssss", $student_pk, $course_id, $batch_id, $batch_id);
+    // Drop the student from other batches that take this course, unless another of their
+    // enrollments (a different course) still places them there.
+    $stmt = $conn->prepare("DELETE cs FROM class_students cs JOIN classes cl ON cl.id = cs.class_id
+                            WHERE cs.student_id = ?
+                              AND (cl.course_id = ? OR EXISTS (SELECT 1 FROM class_courses cc WHERE cc.class_id = cl.id AND cc.course_id = ?))
+                              AND (? IS NULL OR cs.class_id <> ?)
+                              AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.student_id = cs.student_id AND e.batch_id = cs.class_id AND e.course_id <> ?)");
+    $stmt->bind_param("ssssss", $student_pk, $course_id, $course_id, $batch_id, $batch_id, $course_id);
     $stmt->execute();
     $stmt->close();
     if ($batch_id) {
@@ -68,6 +94,19 @@ function sync_batch_roster($conn, $student_pk, $course_id, $batch_id)
         $stmt->execute();
         $stmt->close();
     }
+}
+
+/**
+ * Mirror the enrollment's status onto its batch roster row, so a student who has finished
+ * (or dropped) their course stops getting that batch's assignments, messages and attendance.
+ */
+function sync_roster_status($conn, $enrollment_id)
+{
+    $stmt = $conn->prepare("UPDATE class_students cs JOIN enrollments e ON e.student_id = cs.student_id AND e.batch_id = cs.class_id
+                            SET cs.status = e.status WHERE e.id = ?");
+    $stmt->bind_param("s", $enrollment_id);
+    $stmt->execute();
+    $stmt->close();
 }
 
 /** Posted negotiated fee, defaulting to the course list price when left blank. */

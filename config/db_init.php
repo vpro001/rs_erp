@@ -324,6 +324,17 @@ function init_database($conn)
           UNIQUE KEY uq_class_student (class_id, student_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 
+    // Extra courses that may join a batch besides its main course (e.g. Frontend students in a
+    // Fullstack batch). end_date is when that course's students leave the batch (NULL = batch end).
+    "class_courses" => "CREATE TABLE IF NOT EXISTS class_courses (
+          class_id VARCHAR(36) NOT NULL,
+          course_id VARCHAR(36) NOT NULL,
+          end_date DATE NULL,
+          PRIMARY KEY (class_id, course_id),
+          FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+          FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
     "class_staff" => "CREATE TABLE IF NOT EXISTS class_staff (
           id VARCHAR(36) PRIMARY KEY,
           class_id VARCHAR(36) NOT NULL,
@@ -738,6 +749,7 @@ function init_database($conn)
   migrate_service_categories($conn);
   migrate_clear_stock_avatars($conn);
   migrate_staff_roles($conn);
+  migrate_batch_tracks($conn, $tables['class_courses']);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
   $check = $conn->query("SELECT COUNT(*) as count FROM users_admin WHERE id = 'u-admin-0001'");
@@ -791,6 +803,19 @@ function migrate_enrollment_batches($conn)
         JOIN classes cl ON cl.id = cs.class_id AND cl.course_id = e.course_id
         SET e.batch_id = cl.id, e.start_date = DATE(cl.start_date), e.end_date = DATE(cl.end_date)
         WHERE e.batch_id IS NULL");
+}
+
+/**
+ * Additive migration: batches shared by several courses (class_courses) for installs
+ * created before the table existed. Fresh installs create it in Phase 3.
+ */
+function migrate_batch_tracks($conn, $create_sql)
+{
+  $classes = $conn->query("SHOW TABLES LIKE 'classes'");
+  if (!$classes || $classes->num_rows === 0) {
+    return;
+  }
+  $conn->query($create_sql);
 }
 
 /**

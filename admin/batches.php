@@ -2,6 +2,8 @@
 // admin/batches.php
 // Class batches (cohorts) per course. A batch is a row in `classes`; enrollments point at it
 // through enrollments.batch_id and copy its start/end dates (overridable per student).
+// A batch can also take students of other courses (class_courses), e.g. Frontend students in a
+// Fullstack batch, who leave on that course's own end date.
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../config/db_connection.php';
 require_once __DIR__ . '/../includes/admission_letter.php';
@@ -29,6 +31,63 @@ function set_batch_instructors($conn, $batch_id, $staff_ids)
         $stmt->close();
     }
 }
+
+/**
+ * Posted extra courses for a shared batch: [course_id => leave date Y-m-d, or null = batch end].
+ * $course_titles is [course_id => title]; dates must fall within the batch.
+ */
+function posted_batch_tracks($course_titles, $main_course, $start, $end)
+{
+    $tracks = [];
+    $ends = (array) ($_POST['track_end'] ?? []);
+    foreach ((array) ($_POST['track_courses'] ?? []) as $cid) {
+        $cid = sanitize($cid);
+        if ($cid === $main_course || !isset($course_titles[$cid])) continue;
+        $title = html_entity_decode($course_titles[$cid]);
+        $raw = trim($ends[$cid] ?? '');
+        $date = null;
+        if ($raw !== '') {
+            if (!strtotime($raw)) throw new Exception("Enter a valid end date for $title.");
+            $date = date('Y-m-d', strtotime($raw));
+            if ($date < $start || $date > $end) throw new Exception("The end date for $title must fall within the batch's start and end dates.");
+            if ($date === $end) $date = null;
+        }
+        $tracks[$cid] = $date;
+    }
+    return $tracks;
+}
+
+/** Make the batch's extra courses exactly $tracks; refuses to drop a course that still has students here. */
+function set_batch_tracks($conn, $batch_id, $tracks)
+{
+    $stmt = $conn->prepare("SELECT c.id, c.title, COUNT(*) AS n FROM enrollments e
+                            JOIN classes b ON b.id = e.batch_id JOIN courses c ON c.id = e.course_id
+                            WHERE e.batch_id = ? AND e.course_id <> b.course_id GROUP BY c.id, c.title");
+    $stmt->bind_param("s", $batch_id);
+    $stmt->execute();
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $in_use) {
+        if (!array_key_exists($in_use['id'], $tracks)) {
+            throw new Exception("Cannot remove " . html_entity_decode($in_use['title']) . ": {$in_use['n']} of its student(s) are in this batch. Move them to another batch first.");
+        }
+    }
+    $stmt->close();
+
+    $stmt = $conn->prepare("DELETE FROM class_courses WHERE class_id = ?");
+    $stmt->bind_param("s", $batch_id);
+    $stmt->execute();
+    $stmt->close();
+    foreach ($tracks as $cid => $date) {
+        $stmt = $conn->prepare("INSERT INTO class_courses (class_id, course_id, end_date) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $batch_id, $cid, $date);
+        $stmt->execute();
+        $stmt->close();
+    }
+}
+
+$courses = [];
+$res = $conn->query("SELECT id, title FROM courses ORDER BY title ASC");
+while ($row = $res->fetch_assoc()) $courses[] = $row;
+$course_titles = array_column($courses, 'title', 'id');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
@@ -62,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($stmt->get_result()->num_rows === 0) throw new Exception("Select a valid course.");
             $stmt->close();
 
+            $tracks = posted_batch_tracks($course_titles, $course_id, $start_date, $end_date);
             $id = generate_uuid();
             $stmt = $conn->prepare("INSERT INTO classes (id, course_id, name, description, start_date, end_date, capacity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->bind_param("ssssssis", $id, $course_id, $name, $description, $start_date, $end_date, $capacity, $status);
@@ -69,9 +129,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->close();
 
             set_batch_instructors($conn, $id, array_map('sanitize', (array) ($_POST['instructor_ids'] ?? [])));
+            set_batch_tracks($conn, $id, $tracks);
             log_activity("Created class batch", ["batch_id" => $id, "course_id" => $course_id]);
             $success_msg = "Batch created successfully.";
         } else {
+            $stmt = $conn->prepare("SELECT course_id FROM classes WHERE id = ?");
+            $stmt->bind_param("s", $batch_id);
+            $stmt->execute();
+            $main_course = $stmt->get_result()->fetch_assoc()['course_id'] ?? null;
+            $stmt->close();
+            if (!$main_course) throw new Exception("Batch not found.");
+            // Before touching the batch, so a refused course removal leaves everything unchanged
+            set_batch_tracks($conn, $batch_id, posted_batch_tracks($course_titles, $main_course, $start_date, $end_date));
+
             $stmt = $conn->prepare("UPDATE classes SET name = ?, description = ?, start_date = ?, end_date = ?, capacity = ?, status = ? WHERE id = ?");
             $stmt->bind_param("ssssiss", $name, $description, $start_date, $end_date, $capacity, $status, $batch_id);
             $stmt->execute();
@@ -80,7 +150,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $success_msg = "Batch updated successfully.";
 
             if (isset($_POST['apply_to_students'])) {
-                $stmt = $conn->prepare("UPDATE enrollments SET start_date = ?, end_date = ? WHERE batch_id = ?");
+                // Students of an extra course get that course's leave date instead of the batch end
+                $stmt = $conn->prepare("UPDATE enrollments e LEFT JOIN class_courses cc ON cc.class_id = e.batch_id AND cc.course_id = e.course_id
+                                        SET e.start_date = ?, e.end_date = COALESCE(cc.end_date, ?) WHERE e.batch_id = ?");
                 $stmt->bind_param("sss", $start_date, $end_date, $batch_id);
                 $stmt->execute();
                 $updated = $stmt->affected_rows;
@@ -108,18 +180,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-$courses = [];
-$res = $conn->query("SELECT id, title FROM courses ORDER BY title ASC");
-while ($row = $res->fetch_assoc()) $courses[] = $row;
-
 $filter_course = sanitize($_GET['course_id'] ?? '');
 $sql = "SELECT b.*, c.title AS course_title,
                (SELECT COUNT(*) FROM enrollments e WHERE e.batch_id = b.id) AS enrolled
         FROM classes b JOIN courses c ON c.id = b.course_id";
-if ($filter_course !== '') $sql .= " WHERE b.course_id = ?";
+if ($filter_course !== '') $sql .= " WHERE (b.course_id = ? OR EXISTS (SELECT 1 FROM class_courses cc WHERE cc.class_id = b.id AND cc.course_id = ?))";
 $sql .= " ORDER BY b.start_date DESC";
 $stmt = $conn->prepare($sql);
-if ($filter_course !== '') $stmt->bind_param("s", $filter_course);
+if ($filter_course !== '') $stmt->bind_param("ss", $filter_course, $filter_course);
 $stmt->execute();
 $batches = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -128,6 +196,15 @@ $instructors = $conn->query("SELECT s.id, u.first_name, u.last_name FROM staff s
 $batch_instructors = [];
 foreach ($conn->query("SELECT cs.class_id, s.id, u.first_name, u.last_name FROM class_staff cs JOIN staff s ON s.id = cs.staff_id JOIN users_staff u ON u.id = s.user_id") as $r) {
     $batch_instructors[$r['class_id']][$r['id']] = $r['first_name'] . ' ' . $r['last_name'];
+}
+
+// Extra courses per batch and how many students each course has in it
+$batch_tracks = $batch_course_counts = [];
+foreach ($conn->query("SELECT cc.class_id, cc.course_id, cc.end_date, c.title FROM class_courses cc JOIN courses c ON c.id = cc.course_id ORDER BY c.title") as $r) {
+    $batch_tracks[$r['class_id']][$r['course_id']] = $r;
+}
+foreach ($conn->query("SELECT batch_id, course_id, COUNT(*) AS n FROM enrollments WHERE batch_id IS NOT NULL GROUP BY batch_id, course_id") as $r) {
+    $batch_course_counts[$r['batch_id']][$r['course_id']] = (int) $r['n'];
 }
 
 $edit = null;
@@ -177,7 +254,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                     <div>
                         <label class="<?php echo $label; ?>">Course *</label>
-                        <select name="course_id" required class="<?php echo $input; ?>">
+                        <select name="course_id" id="batch-main-course" required class="<?php echo $input; ?>">
                             <option value="">-- Choose Course --</option>
                             <?php foreach ($courses as $c): ?>
                                 <option value="<?php echo $c['id']; ?>" <?php echo ($_POST['course_id'] ?? $filter_course) === $c['id'] ? 'selected' : ''; ?>><?php echo letter_e($c['title']); ?></option>
@@ -234,11 +311,39 @@ include __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </div>
 
+                <div>
+                    <label class="<?php echo $label; ?>">Also open to (shared batch)</label>
+                    <p class="text-[10px] text-slate-400 mb-1.5">Tick courses whose students learn alongside this batch, e.g. Frontend students in a Fullstack batch. Set the date they leave, or leave it blank if they stay to the end.</p>
+                    <?php
+                    $main = $edit['course_id'] ?? ($_POST['course_id'] ?? $filter_course);
+                    if ($edit) {
+                        $picked = array_map(fn($t) => $t['end_date'] ?? '', $batch_tracks[$edit['id']] ?? []);
+                    } else {
+                        $picked = [];
+                        if ($errors) foreach ((array) ($_POST['track_courses'] ?? []) as $cid) $picked[$cid] = sanitize($_POST['track_end'][$cid] ?? '');
+                    }
+                    ?>
+                    <div class="max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1.5 bg-slate-50">
+                        <?php foreach ($courses as $c): if ($edit && $c['id'] === $edit['course_id']) continue; ?>
+                            <div class="track-row flex items-center gap-2 <?php echo $c['id'] === $main ? 'hidden' : ''; ?>" data-course="<?php echo $c['id']; ?>">
+                                <label class="flex items-center gap-2 text-xs text-slate-700 flex-1 min-w-0">
+                                    <input type="checkbox" name="track_courses[]" value="<?php echo $c['id']; ?>" <?php echo array_key_exists($c['id'], $picked) ? 'checked' : ''; ?>>
+                                    <span class="truncate"><?php echo letter_e($c['title']); ?></span>
+                                    <?php if ($edit && !empty($batch_course_counts[$edit['id']][$c['id']])): ?>
+                                        <span class="text-[9px] text-slate-400 shrink-0">(<?php echo $batch_course_counts[$edit['id']][$c['id']]; ?>)</span>
+                                    <?php endif; ?>
+                                </label>
+                                <input type="date" name="track_end[<?php echo $c['id']; ?>]" value="<?php echo $picked[$c['id']] ?? ''; ?>" title="Date these students leave the batch (blank = batch end date)" aria-label="Leave date for <?php echo letter_e($c['title']); ?>" class="w-32 shrink-0 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] outline-none">
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
                 <?php if ($edit && $edit['enrolled'] > 0): ?>
                     <div class="p-3 bg-amber-50/50 border border-amber-200/60 rounded-lg space-y-2 text-xs text-slate-600">
                         <label class="flex items-center space-x-2">
                             <input type="checkbox" name="apply_to_students" value="1" onchange="document.getElementById('resend-wrap').classList.toggle('hidden', !this.checked)">
-                            <span>Apply new dates to the <?php echo intval($edit['enrolled']); ?> enrolled student(s)</span>
+                            <span>Apply new dates to the <?php echo intval($edit['enrolled']); ?> enrolled student(s)<?php echo !empty($batch_tracks[$edit['id']]) ? ' (students of extra courses get their course\'s leave date)' : ''; ?></span>
                         </label>
                         <label id="resend-wrap" class="flex items-center space-x-2 hidden">
                             <input type="checkbox" name="resend_letters" value="1">
@@ -295,13 +400,23 @@ include __DIR__ . '/../includes/header.php';
                                 <td class="py-3">
                                     <span class="font-bold text-slate-900 block"><?php echo letter_e($b['name']); ?></span>
                                     <span class="text-[10px] text-slate-400 block"><?php echo letter_e($b['course_title']); ?></span>
+                                    <?php foreach ($batch_tracks[$b['id']] ?? [] as $t): ?>
+                                        <span class="text-[10px] text-indigo-600 block">+ <?php echo letter_e($t['title']); ?><?php echo $t['end_date'] ? ', leaves ' . date('d M Y', strtotime($t['end_date'])) : ''; ?></span>
+                                    <?php endforeach; ?>
                                     <span class="text-[10px] <?php echo empty($batch_instructors[$b['id']]) ? 'text-amber-600' : 'text-cyan-700'; ?>">
                                         <?php echo empty($batch_instructors[$b['id']]) ? 'No instructor' : 'Instructor: ' . sanitize(implode(', ', $batch_instructors[$b['id']])); ?>
                                     </span>
                                 </td>
                                 <td class="py-3"><?php echo $b['start_date'] ? date('d M Y', strtotime($b['start_date'])) : '-'; ?></td>
                                 <td class="py-3"><?php echo $b['end_date'] ? date('d M Y', strtotime($b['end_date'])) : '-'; ?></td>
-                                <td class="py-3"><?php echo intval($b['enrolled']) . ($b['capacity'] ? ' / ' . intval($b['capacity']) : ''); ?></td>
+                                <td class="py-3">
+                                    <?php echo intval($b['enrolled']) . ($b['capacity'] ? ' / ' . intval($b['capacity']) : ''); ?>
+                                    <?php if (!empty($batch_tracks[$b['id']]) && $b['enrolled'] > 0): ?>
+                                        <?php foreach ($batch_course_counts[$b['id']] ?? [] as $cid => $n): ?>
+                                            <span class="text-[9px] text-slate-400 block"><?php echo $n . ' ' . letter_e($course_titles[$cid] ?? ''); ?></span>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="py-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold"><?php echo sanitize($b['status']); ?></span></td>
                                 <td class="py-3 text-right">
                                     <a href="batches.php?edit=<?php echo $b['id']; ?><?php echo $filter_course ? '&course_id=' . urlencode($filter_course) : ''; ?>" class="text-[10px] font-bold text-blue-600 hover:underline">Edit</a>
@@ -314,5 +429,20 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+    // On a new batch, the main course can't also be an extra course
+    (function () {
+        const main = document.getElementById('batch-main-course');
+        if (!main) return;
+        const sync = () => document.querySelectorAll('.track-row').forEach(row => {
+            const isMain = row.dataset.course === main.value;
+            row.classList.toggle('hidden', isMain);
+            if (isMain) row.querySelector('input[type=checkbox]').checked = false;
+        });
+        main.addEventListener('change', sync);
+        sync();
+    })();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

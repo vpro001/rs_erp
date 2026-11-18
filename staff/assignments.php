@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $due = $due_raw !== '' && strtotime($due_raw) ? date('Y-m-d H:i:s', strtotime($due_raw)) : null;
             if ($due && strtotime($due) < time()) throw new Exception("The due date is in the past.");
 
-            $stmt = $conn->prepare("SELECT s.id AS student_pk, u.id AS user_id, u.email, u.first_name, u.last_name
+            // In a shared batch each student's assignment is filed under their own course (e.g. Frontend, not Fullstack).
+            $stmt = $conn->prepare("SELECT s.id AS student_pk, u.id AS user_id, u.email, u.first_name, u.last_name,
+                                           (SELECT e.course_id FROM enrollments e WHERE e.student_id = s.id AND e.batch_id = cs.class_id LIMIT 1) AS course_id
                                     FROM class_students cs JOIN students s ON s.id = cs.student_id JOIN users_student u ON u.id = s.user_id
                                     WHERE cs.class_id = ? AND cs.status = 'ACTIVE'");
             $stmt->bind_param("s", $class_id);
@@ -60,7 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 foreach ($students as $st) {
                     $id = generate_uuid();
                     $stmt = $conn->prepare("INSERT INTO assignments (id, course_id, student_id, title, description, due_date, status, class_id, created_by) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)");
-                    $stmt->bind_param("ssssssss", $id, $batch['course_id'], $st['student_pk'], $title, $description, $due, $class_id, $creator);
+                    $course_for = $st['course_id'] ?: $batch['course_id'];
+                    $stmt->bind_param("ssssssss", $id, $course_for, $st['student_pk'], $title, $description, $due, $class_id, $creator);
                     $stmt->execute();
                     $stmt->close();
                 }

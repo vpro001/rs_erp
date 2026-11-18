@@ -6,6 +6,7 @@
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/pdf.php';
 require_once __DIR__ . '/admission_letter.php'; // ACADEMY_NAME, letter_date()
+require_once __DIR__ . '/enrollment_helpers.php'; // sync_roster_status()
 
 /** Why an enrollment can't have its payment certified yet, or null if it can. */
 function payment_certify_blocker($e)
@@ -87,6 +88,7 @@ function authorize_certificate($conn, $enrollment_id)
         $stmt->bind_param("s", $enrollment_id);
         $stmt->execute();
         $stmt->close();
+        sync_roster_status($conn, $enrollment_id); // e.g. a Frontend student leaves the shared Fullstack batch
         $conn->commit();
     } catch (Exception $ex) {
         $conn->rollback();

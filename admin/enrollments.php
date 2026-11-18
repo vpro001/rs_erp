@@ -185,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $stmt->close();
             sync_batch_roster($conn, $enr['student_id'], $enr['course_id'], $batch_id);
+            sync_roster_status($conn, $enr['id']);
             if ($fee_changed && $due > 0.005 && !empty($enr['payment_certified_at'])) {
                 // A raised fee re-opens the balance, so the earlier "paid in full" certification no longer holds.
                 $stmt = $conn->prepare("UPDATE enrollments SET payment_certified_at = NULL, payment_certified_by = NULL WHERE id = ?");
@@ -273,6 +274,7 @@ $res = $conn->query("SELECT b.id, b.name, b.course_id, b.start_date, b.end_date,
                             (SELECT COUNT(*) FROM enrollments e WHERE e.batch_id = b.id) AS enrolled
                      FROM classes b ORDER BY b.start_date DESC");
 while ($r = $res->fetch_assoc()) $batches[] = $r;
+$batch_ends = batch_course_ends($conn);
 
 // Enrollment list (filters)
 $f_course = sanitize($_GET['course'] ?? '');
@@ -321,16 +323,20 @@ if ($enrollments) {
 $input = "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400";
 $label = "block text-[10px] text-slate-400 uppercase font-semibold mb-1";
 $csrf = '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
-$batch_opts = function ($course_id, $selected = '') use ($batches) {
+// $course_id null = registration form, where JS filters by the chosen course using data-ends.
+$batch_opts = function ($course_id, $selected = '') use ($batches, $batch_ends) {
     $out = '<option value="">-- No batch (enter dates) --</option>';
     foreach ($batches as $b) {
-        if ($course_id !== null && $b['course_id'] !== $course_id) continue;
+        $ends = $batch_ends[$b['id']] ?? [];
+        if ($course_id !== null && !array_key_exists($course_id, $ends)) continue;
+        $shared = $course_id !== null && $b['course_id'] !== $course_id;
         $full = $b['capacity'] && $b['enrolled'] >= $b['capacity'] && $b['id'] !== $selected;
-        $out .= '<option value="' . $b['id'] . '" data-course="' . $b['course_id'] . '"'
+        $out .= '<option value="' . $b['id'] . '" data-main="' . $b['course_id'] . '"'
+            . ' data-ends="' . htmlspecialchars(json_encode($ends), ENT_QUOTES) . '"'
             . ' data-start="' . ($b['start_date'] ? date('Y-m-d', strtotime($b['start_date'])) : '') . '"'
-            . ' data-end="' . ($b['end_date'] ? date('Y-m-d', strtotime($b['end_date'])) : '') . '"'
+            . ' data-end="' . ($course_id !== null ? $ends[$course_id] : ($b['end_date'] ? date('Y-m-d', strtotime($b['end_date'])) : '')) . '"'
             . ($b['id'] === $selected ? ' selected' : '') . ($full ? ' disabled' : '') . '>'
-            . sanitize($b['name']) . ($full ? ' (full)' : '') . '</option>';
+            . sanitize($b['name']) . ($shared ? ' (shared batch)' : '') . ($full ? ' (full)' : '') . '</option>';
     }
     return $out;
 };
@@ -565,8 +571,16 @@ include __DIR__ . '/../includes/header.php';
             }
         };
         course.addEventListener('change', () => {
-            for (const opt of batch.options) if (opt.value) opt.hidden = opt.dataset.course !== course.value;
+            for (const opt of batch.options) {
+                if (!opt.value) continue;
+                const ends = JSON.parse(opt.dataset.ends || '{}');
+                opt.hidden = !(course.value in ends);
+                // Students of an extra course leave the shared batch on that course's own end date
+                if (!opt.hidden) opt.dataset.end = ends[course.value];
+                opt.textContent = opt.textContent.replace(/ \(shared batch\)$/, '') + (!opt.hidden && opt.dataset.main !== course.value ? ' (shared batch)' : '');
+            }
             if (batch.selectedOptions[0]?.hidden) batch.value = '';
+            else if (batch.value) fillDates(batch, batch.form);
             const o = course.selectedOptions[0];
             const allowed = o && o.dataset.installment === '1';
             plan.querySelector('[value=INSTALLMENT]').disabled = !allowed;

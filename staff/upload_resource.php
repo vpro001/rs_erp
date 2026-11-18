@@ -100,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Fetch Staff's courses to populate dropdown select
 $courses = [];
 try {
-    $stmt = $conn->prepare("SELECT id, title FROM courses WHERE status = 'ACTIVE' AND (instructor_id = ? OR id IN (SELECT b.course_id FROM classes b JOIN class_staff cs ON cs.class_id = b.id WHERE cs.staff_id = '" . $conn->real_escape_string((string) $staff_id) . "'))");
+    $stmt = $conn->prepare("SELECT id, title FROM courses WHERE status = 'ACTIVE' AND (instructor_id = ? OR id IN (SELECT b.course_id FROM classes b JOIN class_staff cs ON cs.class_id = b.id WHERE cs.staff_id = '" . $conn->real_escape_string((string) $staff_id) . "')"
+                            . " OR id IN (SELECT cc.course_id FROM class_courses cc JOIN class_staff cs ON cs.class_id = cc.class_id WHERE cs.staff_id = '" . $conn->real_escape_string((string) $staff_id) . "'))");
     $stmt->bind_param("s", $staff_id);
     $stmt->execute();
     $res = $stmt->get_result();

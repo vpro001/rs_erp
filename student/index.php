@@ -73,7 +73,7 @@ try {
 // Fetch upcoming classes
 $classes = [];
 try {
-    $stmt = $conn->prepare("SELECT cl.*, c.title as course_title FROM class_students cs JOIN classes cl ON cs.class_id = cl.id JOIN courses c ON cl.course_id = c.id WHERE cs.student_id = ? AND cl.status = 'ACTIVE' ORDER BY cl.start_date ASC LIMIT 3");
+    $stmt = $conn->prepare("SELECT cl.*, c.title as course_title FROM class_students cs JOIN classes cl ON cs.class_id = cl.id JOIN courses c ON c.id = COALESCE((SELECT e.course_id FROM enrollments e WHERE e.student_id = cs.student_id AND e.batch_id = cl.id LIMIT 1), cl.course_id) WHERE cs.student_id = ? AND cs.status = 'ACTIVE' AND cl.status = 'ACTIVE' ORDER BY cl.start_date ASC LIMIT 3");
     $stmt->bind_param("s", $student_id);
     $stmt->execute();
     $res = $stmt->get_result();

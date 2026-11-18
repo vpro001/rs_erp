@@ -266,6 +266,7 @@ if (!empty($view_user_id)) {
                 while ($row = $res_batches->fetch_assoc()) {
                     $all_batches[] = $row;
                 }
+                $batch_ends = batch_course_ends($conn);
                 $stmt = $conn->prepare("SELECT e.id as enr_id, e.course_id as c_id, e.amount_due, e.total_paid, c.title as course_title 
                                         FROM enrollments e 
                                         JOIN courses c ON e.course_id = c.id 
@@ -451,7 +452,8 @@ include __DIR__ . '/../includes/header.php';
                     <select name="batch_id" id="enroll-batch" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none">
                         <option value="">-- No batch (enter dates) --</option>
                         <?php foreach($all_batches as $b): if ($b['status'] !== 'ACTIVE') continue; ?>
-                            <option value="<?php echo $b['id']; ?>" data-course="<?php echo $b['course_id']; ?>"
+                            <option value="<?php echo $b['id']; ?>" data-main="<?php echo $b['course_id']; ?>"
+                                    data-ends="<?php echo htmlspecialchars(json_encode($batch_ends[$b['id']] ?? []), ENT_QUOTES); ?>"
                                     data-start="<?php echo $b['start_date'] ? date('Y-m-d', strtotime($b['start_date'])) : ''; ?>"
                                     data-end="<?php echo $b['end_date'] ? date('Y-m-d', strtotime($b['end_date'])) : ''; ?>"
                                     <?php echo $b['capacity'] && $b['enrolled'] >= $b['capacity'] ? 'disabled' : ''; ?>>
@@ -514,9 +516,14 @@ include __DIR__ . '/../includes/header.php';
                     const end = document.getElementById('enroll-end');
                     course.addEventListener('change', () => {
                         for (const opt of batch.options) {
-                            if (opt.value) opt.hidden = opt.dataset.course !== course.value;
+                            if (!opt.value) continue;
+                            const ends = JSON.parse(opt.dataset.ends || '{}');
+                            opt.hidden = !(course.value in ends);
+                            // Students of an extra course leave the shared batch on that course's own end date
+                            if (!opt.hidden) opt.dataset.end = ends[course.value];
                         }
                         if (batch.selectedOptions[0]?.hidden) batch.value = '';
+                        else if (batch.value) { start.value = batch.selectedOptions[0].dataset.start; end.value = batch.selectedOptions[0].dataset.end; }
                     });
                     batch.addEventListener('change', () => {
                         const opt = batch.selectedOptions[0];
@@ -573,8 +580,8 @@ include __DIR__ . '/../includes/header.php';
                                         <input type="hidden" name="enrollment_id" value="<?php echo $te['id']; ?>">
                                         <select name="batch_id" onchange="const o = this.selectedOptions[0]; if (o.value) { this.form.start_date.value = o.dataset.start; this.form.end_date.value = o.dataset.end; }" class="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs outline-none">
                                             <option value="">-- No batch --</option>
-                                            <?php foreach($all_batches as $b): if ($b['course_id'] !== $te['course_id']) continue; ?>
-                                                <option value="<?php echo $b['id']; ?>" data-start="<?php echo $b['start_date'] ? date('Y-m-d', strtotime($b['start_date'])) : ''; ?>" data-end="<?php echo $b['end_date'] ? date('Y-m-d', strtotime($b['end_date'])) : ''; ?>" <?php echo $b['id'] === $te['batch_id'] ? 'selected' : ''; ?>><?php echo letter_e($b['name']) . ($b['status'] !== 'ACTIVE' ? ' (' . strtolower($b['status']) . ')' : ''); ?></option>
+                                            <?php foreach($all_batches as $b): if (!array_key_exists($te['course_id'], $batch_ends[$b['id']] ?? [])) continue; ?>
+                                                <option value="<?php echo $b['id']; ?>" data-start="<?php echo $b['start_date'] ? date('Y-m-d', strtotime($b['start_date'])) : ''; ?>" data-end="<?php echo $batch_ends[$b['id']][$te['course_id']]; ?>" <?php echo $b['id'] === $te['batch_id'] ? 'selected' : ''; ?>><?php echo letter_e($b['name']) . ($b['course_id'] !== $te['course_id'] ? ' (shared batch)' : '') . ($b['status'] !== 'ACTIVE' ? ' (' . strtolower($b['status']) . ')' : ''); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <div class="grid grid-cols-2 gap-2">

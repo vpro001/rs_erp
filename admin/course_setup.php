@@ -218,6 +218,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
     }
 }
 
+// 5. Handle Course Category create / update / delete
+$category_actions = ['create_category', 'update_category', 'delete_category'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], $category_actions, true)) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("CSRF validation failed.");
+    }
+
+    $act = $_POST['action'];
+    $cat_id = sanitize($_POST['id'] ?? '');
+    $cat_name = trim(sanitize($_POST['name'] ?? ''));
+    $cat_desc = trim(sanitize($_POST['description'] ?? ''));
+
+    try {
+        if ($act !== 'create_category' && $cat_id === '') {
+            throw new Exception("Missing category identifier.");
+        }
+        if ($act !== 'delete_category') {
+            if ($cat_name === '') {
+                throw new Exception("Category name is required.");
+            }
+            // Names are UNIQUE in the schema; give a friendly error instead of a DB exception
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM course_categories WHERE name = ? AND id <> ?");
+            $stmt->bind_param("ss", $cat_name, $cat_id);
+            $stmt->execute();
+            $stmt->bind_result($dupes);
+            $stmt->fetch();
+            $stmt->close();
+            if ($dupes > 0) {
+                throw new Exception("A category named \"$cat_name\" already exists.");
+            }
+        }
+
+        if ($act === 'create_category') {
+            $new_id = generate_uuid();
+            $stmt = $conn->prepare("INSERT INTO course_categories (id, name, description) VALUES (?, ?, ?)");
+            $stmt->bind_param("sss", $new_id, $cat_name, $cat_desc);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Created Course Category", ["name" => $cat_name]);
+            $success_msg = "Category \"$cat_name\" added.";
+
+        } elseif ($act === 'update_category') {
+            $stmt = $conn->prepare("UPDATE course_categories SET name = ?, description = ? WHERE id = ?");
+            $stmt->bind_param("sss", $cat_name, $cat_desc, $cat_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Updated Course Category", ["category_id" => $cat_id, "name" => $cat_name]);
+            $success_msg = "Category updated.";
+
+        } else {
+            // Courses require a category, so don't silently null it out via ON DELETE SET NULL
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM courses WHERE category_id = ?");
+            $stmt->bind_param("s", $cat_id);
+            $stmt->execute();
+            $stmt->bind_result($in_use);
+            $stmt->fetch();
+            $stmt->close();
+            if ($in_use > 0) {
+                throw new Exception("Cannot delete: $in_use course(s) use this category. Move them to another category first.");
+            }
+            $stmt = $conn->prepare("DELETE FROM course_categories WHERE id = ?");
+            $stmt->bind_param("s", $cat_id);
+            $stmt->execute();
+            $stmt->close();
+            log_activity("Deleted Course Category", ["category_id" => $cat_id]);
+            $success_msg = "Category deleted.";
+        }
+    } catch (Exception $e) {
+        $errors[] = $e->getMessage();
+    }
+}
+
 // Fetch all staff for instructors dropdown
 $instructors = [];
 try {
@@ -232,7 +304,11 @@ try {
 // Fetch categories dropdown
 $categories = [];
 try {
-    $res = $conn->query("SELECT id, name FROM course_categories ORDER BY name ASC");
+    $res = $conn->query("SELECT cat.id, cat.name, cat.description, COUNT(c.id) AS course_count
+                         FROM course_categories cat
+                         LEFT JOIN courses c ON c.category_id = cat.id
+                         GROUP BY cat.id, cat.name, cat.description
+                         ORDER BY cat.name ASC");
     while ($row = $res->fetch_assoc()) {
         $categories[] = $row;
     }
@@ -377,7 +453,7 @@ include __DIR__ . '/../includes/header.php';
                     <div>
                         <label for="category" class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Course Category</label>
                         <select name="category_id" id="category" required class="w-full px-4 py-2 bg-slate-50  border border-slate-200  rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-xs transition-all">
-                            <option value="">Select Category...</option>
+                            <option value=""><?php echo empty($categories) ? 'No categories yet, add one below' : 'Select Category...'; ?></option>
                             <?php foreach($categories as $cat): ?>
                                 <option value="<?php echo $cat['id']; ?>"><?php echo sanitize($cat['name']); ?></option>
                             <?php endforeach; ?>
@@ -413,7 +489,70 @@ include __DIR__ . '/../includes/header.php';
                 </button>
             </form>
         </div>
-        
+
+        <!-- Course Categories Manager -->
+        <div class="bg-white  border border-slate-200  rounded-2xl p-6 shadow-sm">
+            <h4 class="text-sm font-bold text-slate-900  mb-4 flex items-center space-x-2 border-b border-slate-100  pb-3">
+                <i data-lucide="tags" class="w-4 h-4 text-emerald-500"></i>
+                <span>Course Categories</span>
+            </h4>
+
+            <?php if (empty($categories)): ?>
+                <p class="text-xs text-slate-400 text-center py-2">No categories yet.</p>
+            <?php else: ?>
+                <div class="space-y-2 mb-4">
+                    <?php foreach ($categories as $cat): ?>
+                        <div class="p-3 bg-slate-50 border border-slate-200/50 rounded-xl">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-900"><?php echo sanitize($cat['name']); ?></p>
+                                    <?php if (!empty($cat['description'])): ?>
+                                        <p class="text-[10px] text-slate-400 mt-0.5"><?php echo sanitize($cat['description']); ?></p>
+                                    <?php endif; ?>
+                                    <p class="text-[9px] text-slate-400 mt-1"><?php echo (int)$cat['course_count']; ?> course(s)</p>
+                                </div>
+                                <div class="flex items-center space-x-3 shrink-0">
+                                    <button type="button" class="text-[10px] font-bold text-blue-600 hover:underline" onclick="toggleForm('edit-category-<?php echo $cat['id']; ?>')">Edit</button>
+                                    <?php if ((int)$cat['course_count'] === 0): ?>
+                                        <form method="POST" class="inline" onsubmit="return confirm('Delete this category?');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                            <input type="hidden" name="action" value="delete_category">
+                                            <input type="hidden" name="id" value="<?php echo $cat['id']; ?>">
+                                            <button type="submit" class="text-[10px] font-bold text-red-600 hover:underline">Delete</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="text-[10px] font-bold text-slate-300 cursor-not-allowed" title="Move its courses to another category first">Delete</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <form id="edit-category-<?php echo $cat['id']; ?>" method="POST" class="hidden mt-3 space-y-2">
+                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                <input type="hidden" name="action" value="update_category">
+                                <input type="hidden" name="id" value="<?php echo $cat['id']; ?>">
+                                <input type="text" name="name" required maxlength="191" value="<?php echo $cat['name']; ?>" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none">
+                                <textarea name="description" rows="2" placeholder="Description (optional)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"><?php echo $cat['description']; ?></textarea>
+                                <div class="flex justify-end space-x-2">
+                                    <button type="button" class="px-3 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold" onclick="toggleForm('edit-category-<?php echo $cat['id']; ?>')">Cancel</button>
+                                    <button type="submit" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-bold">Save</button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <form action="course_setup.php" method="POST" class="space-y-2 border-t border-slate-100 pt-4">
+                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                <input type="hidden" name="action" value="create_category">
+                <label for="new-category-name" class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">New Category</label>
+                <input type="text" name="name" id="new-category-name" required maxlength="191" placeholder="e.g. Data Science" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-xs transition-all">
+                <textarea name="description" rows="2" placeholder="Short description (optional)" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-xs transition-all"></textarea>
+                <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition-all">
+                    Add Category
+                </button>
+            </form>
+        </div>
+
     </div>
     
     <!-- Right Panel: Course selection list & modules config (Col span 2) -->
