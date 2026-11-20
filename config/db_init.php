@@ -733,7 +733,25 @@ function init_database($conn)
           uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           change_summary VARCHAR(255) NULL,
           FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
+    "staff_reports" => "CREATE TABLE IF NOT EXISTS staff_reports (
+          id VARCHAR(36) PRIMARY KEY,
+          staff_id VARCHAR(36) NOT NULL,
+          report_type ENUM('DAILY','WEEKLY') NOT NULL,
+          report_date DATE NOT NULL,
+          week_start_date DATE NULL,
+          independent_productivity TEXT NOT NULL,
+          assigned_responsibilities TEXT NOT NULL,
+          task_progress_completion TEXT NOT NULL,
+          additional_records TEXT NOT NULL,
+          status ENUM('DRAFT','SUBMITTED') DEFAULT 'DRAFT',
+          submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_staff_type_date (staff_id, report_type, report_date),
+          UNIQUE KEY uq_staff_type_date (staff_id, report_type, report_date),
+          FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
   ];
 
   // Phase 1: Ensure per-role credential tables exist, then backfill from legacy shared table
@@ -749,6 +767,7 @@ function init_database($conn)
   migrate_service_categories($conn);
   migrate_clear_stock_avatars($conn);
   migrate_staff_roles($conn);
+  migrate_staff_reports($conn);
   migrate_batch_tracks($conn, $tables['class_courses']);
 
   // Phase 2: Skip schema/seed work if demo data already present (guarded on admin credential table)
@@ -1112,6 +1131,31 @@ function migrate_staff_roles($conn)
           INDEX idx_msg_student (student_id),
           FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+}
+
+/**
+ * One-time additive migration: create the staff_reports table for daily/weekly
+ * staff report logging. Safe to re-run (CREATE TABLE IF NOT EXISTS).
+ */
+function migrate_staff_reports($conn)
+{
+  $conn->query("CREATE TABLE IF NOT EXISTS staff_reports (
+          id VARCHAR(36) PRIMARY KEY,
+          staff_id VARCHAR(36) NOT NULL,
+          report_type ENUM('DAILY','WEEKLY') NOT NULL,
+          report_date DATE NOT NULL,
+          week_start_date DATE NULL,
+          independent_productivity TEXT NOT NULL,
+          assigned_responsibilities TEXT NOT NULL,
+          task_progress_completion TEXT NOT NULL,
+          additional_records TEXT NOT NULL,
+          status ENUM('DRAFT','SUBMITTED') DEFAULT 'DRAFT',
+          submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_staff_type_date (staff_id, report_type, report_date),
+          UNIQUE KEY uq_staff_type_date (staff_id, report_type, report_date),
+          FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 }
 

@@ -129,6 +129,10 @@ $my_staff_role = $current_role === 'STAFF' ? staff_role() : null;
                     <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
                     <span class="text-sm">Analytics Reports</span>
                 </a>
+                <a href="<?php echo BASE_URL; ?>/admin/staff_reports.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-md transition-colors duration-150 <?php echo is_menu_active('staff_reports.php', $current_page); ?>">
+                    <i data-lucide="file-text" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="text-sm">Staff Reports</span>
+                </a>
 
                 <?php echo sidebar_heading('Staff & Academics'); ?>
                 <?php echo sidebar_link('/admin/staff.php', 'id-card', 'Staff Management', $current_page); ?>
@@ -142,6 +146,7 @@ $my_staff_role = $current_role === 'STAFF' ? staff_role() : null;
                 <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] px-3 pt-2 pb-2"><?php echo STAFF_ROLES[$my_staff_role] ?? 'Staff Portal'; ?></p>
 
                 <?php echo sidebar_link('/staff/index.php', 'layout-dashboard', 'Dashboard', $current_page); ?>
+                <?php echo sidebar_link('/staff/reports.php', 'file-text', 'My Reports', $current_page); ?>
                 <?php foreach ($staff_menus[$my_staff_role] ?? [] as [$url, $icon, $text]) echo sidebar_link($url, $icon, $text, $current_page); ?>
                 
             <?php elseif ($current_role === 'STUDENT'): ?>

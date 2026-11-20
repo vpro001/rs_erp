@@ -1091,6 +1091,27 @@ CREATE TABLE `staff_updates` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `staff_reports`
+--
+
+CREATE TABLE `staff_reports` (
+  `id` varchar(36) NOT NULL,
+  `staff_id` varchar(36) NOT NULL,
+  `report_type` enum('DAILY','WEEKLY') NOT NULL,
+  `report_date` date NOT NULL,
+  `week_start_date` date DEFAULT NULL,
+  `independent_productivity` text NOT NULL,
+  `assigned_responsibilities` text NOT NULL,
+  `task_progress_completion` text NOT NULL,
+  `additional_records` text NOT NULL,
+  `status` enum('DRAFT','SUBMITTED') DEFAULT 'DRAFT',
+  `submitted_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `students`
 --
 
@@ -1713,6 +1734,15 @@ ALTER TABLE `staff_updates`
   ADD KEY `staff_id` (`staff_id`);
 
 --
+-- Indexes for table `staff_reports`
+--
+ALTER TABLE `staff_reports`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_staff_type_date` (`staff_id`,`report_type`,`report_date`),
+  ADD KEY `idx_staff_type_date` (`staff_id`,`report_type`,`report_date`),
+  ADD KEY `staff_id` (`staff_id`);
+
+--
 -- Indexes for table `students`
 --
 ALTER TABLE `students`
@@ -2041,6 +2071,12 @@ ALTER TABLE `staff`
 --
 ALTER TABLE `staff_updates`
   ADD CONSTRAINT `staff_updates_ibfk_1` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `staff_reports`
+--
+ALTER TABLE `staff_reports`
+  ADD CONSTRAINT `staff_reports_ibfk_1` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `students`
