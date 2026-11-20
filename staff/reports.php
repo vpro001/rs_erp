@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $week_start_date = date('Y-m-d', strtotime('monday this week', strtotime($report_date)));
                 }
             }
+            $week_start_db = $week_start_date !== '' ? $week_start_date : null;
 
             $independent_productivity = trim($_POST['independent_productivity'] ?? '');
             $assigned_responsibilities = trim($_POST['assigned_responsibilities'] ?? '');
@@ -90,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 $id = generate_uuid();
                 $stmt = $conn->prepare("INSERT INTO staff_reports (id, staff_id, report_type, report_date, week_start_date, independent_productivity, assigned_responsibilities, task_progress_completion, additional_records, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssssssss", $id, $staff_id, $report_type, $report_date, $week_start_date ?: null, $independent_productivity, $assigned_responsibilities, $task_progress_completion, $additional_records, $status);
+                $stmt->bind_param("ssssssssss", $id, $staff_id, $report_type, $report_date, $week_start_db, $independent_productivity, $assigned_responsibilities, $task_progress_completion, $additional_records, $status);
                 $stmt->execute();
                 $stmt->close();
 
@@ -126,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->close();
 
                 $stmt = $conn->prepare("UPDATE staff_reports SET report_type = ?, report_date = ?, week_start_date = ?, independent_productivity = ?, assigned_responsibilities = ?, task_progress_completion = ?, additional_records = ?, status = ?, updated_at = NOW() WHERE id = ? AND staff_id = ?");
-                $stmt->bind_param("ssssssssss", $report_type, $report_date, $week_start_date ?: null, $independent_productivity, $assigned_responsibilities, $task_progress_completion, $additional_records, $status, $report_pk, $staff_id);
+                $stmt->bind_param("ssssssssss", $report_type, $report_date, $week_start_db, $independent_productivity, $assigned_responsibilities, $task_progress_completion, $additional_records, $status, $report_pk, $staff_id);
                 $stmt->execute();
                 $stmt->close();
 
