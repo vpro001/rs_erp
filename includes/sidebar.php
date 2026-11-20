@@ -42,6 +42,8 @@ $staff_menus = [
         ['/staff/students.php', 'user-plus', 'Student Registration'],
         ['/staff/enrollments.php', 'clipboard-list', 'Enrollments & Payments'],
         ['/staff/batches.php', 'calendar-range', 'Class Batches'],
+        ['/staff/sales.php', 'target', 'Sales & Prospects'],
+        ['/staff/meetings.php', 'video', 'Client Meetings'],
     ],
     'HEAD_ADMIN' => [
         ['/staff/certification.php', 'badge-check', 'Certification'],

@@ -34,9 +34,9 @@ const STAFF_PERMISSIONS = [
     'students.view' => ['CUSTOMER_SERVICE', 'HEAD_ADMIN'],
     'certify' => ['HEAD_ADMIN'],
     'teach' => ['INSTRUCTOR'],
-    'sales' => ['MARKETING'],
+    'sales' => ['MARKETING', 'CUSTOMER_SERVICE'],
     'marketers' => ['MARKETING'],
-    'meetings' => ['MARKETING'],
+    'meetings' => ['MARKETING', 'CUSTOMER_SERVICE'],
 ];
 
 /**
