@@ -82,10 +82,13 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
     /* Flatten leftover decoration from earlier markup */
-    [class*="bg-gradient-to"] { background-image: none !important; }
-    [class*="bg-gradient-to"][class*="from-navy"], [class*="bg-gradient-to"][class*="from-purple"],
-    [class*="bg-gradient-to"][class*="from-amber"] { background-color: var(--navy); }
-    .bg-clip-text { background: none !important; -webkit-text-fill-color: currentColor !important; color: var(--navy) !important; }
+    /* Gradients become a solid fill from their colour family (navy by default) so white text keeps its contrast */
+    [class*="bg-gradient-to"] { background-image: none !important; background-color: var(--navy) !important; }
+    [class*="bg-gradient-to"][class*="from-emerald"], [class*="bg-gradient-to"][class*="from-green"] { background-color: var(--ok) !important; }
+    [class*="bg-gradient-to"][class*="from-red"], [class*="bg-gradient-to"][class*="from-rose"] { background-color: var(--danger) !important; }
+    [class*="bg-gradient-to"][class*="from-slate"], [class*="bg-gradient-to"][class*="from-gray"] { background-color: var(--ink) !important; }
+    button[class*="bg-gradient-to"]:hover, a[class*="bg-gradient-to"]:hover { filter: brightness(1.15); }
+    .bg-clip-text, [class*="bg-gradient-to"].bg-clip-text[class*="from-"] { background: none !important; -webkit-text-fill-color: currentColor !important; color: var(--navy) !important; }
     .backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-xl { backdrop-filter: none !important; }
     .rounded-2xl { border-radius: 10px !important; }
     .rounded-xl { border-radius: 8px !important; }

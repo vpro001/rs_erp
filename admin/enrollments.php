@@ -585,7 +585,7 @@ include __DIR__ . '/../includes/header.php';
             const allowed = o && o.dataset.installment === '1';
             plan.querySelector('[value=INSTALLMENT]').disabled = !allowed;
             if (!allowed) plan.value = 'FULL';
-            if (o && o.dataset.count) count.value = o.dataset.count;
+            if (o && Number(o.dataset.count) >= 2) count.value = o.dataset.count;
             const fee = document.getElementById('reg-fee');
             if (o && o.dataset.price) {
                 fee.value = Number(o.dataset.price).toFixed(2);
@@ -593,7 +593,12 @@ include __DIR__ . '/../includes/header.php';
             }
             plan.dispatchEvent(new Event('change'));
         });
-        plan.addEventListener('change', () => countWrap.classList.toggle('hidden', plan.value !== 'INSTALLMENT'));
+        plan.addEventListener('change', () => {
+            const inst = plan.value === 'INSTALLMENT';
+            countWrap.classList.toggle('hidden', !inst);
+            // A hidden field with an invalid value would silently block submission, so take it out of the form
+            count.disabled = !inst;
+        });
         batch.addEventListener('change', () => fillDates(batch, batch.form));
         document.querySelectorAll('.edit-batch').forEach(s => s.addEventListener('change', () => fillDates(s, s.form)));
         course.dispatchEvent(new Event('change'));
