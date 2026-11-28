@@ -45,6 +45,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } else {
         $action = $_POST['action'];
         try {
+            if ($action === 'delete') {
+                // Delete only needs the report pk; skip full-form validation.
+                $report_pk = sanitize($_POST['report_pk'] ?? '');
+                $stmt = $conn->prepare("SELECT id, status FROM staff_reports WHERE id = ? AND staff_id = ? AND status = 'DRAFT'");
+                $stmt->bind_param("ss", $report_pk, $staff_id);
+                $stmt->execute();
+                $existing = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if (!$existing) {
+                    throw new Exception("Only draft reports can be deleted.");
+                }
+                $stmt = $conn->prepare("DELETE FROM staff_reports WHERE id = ? AND staff_id = ?");
+                $stmt->bind_param("ss", $report_pk, $staff_id);
+                $stmt->execute();
+                $stmt->close();
+                log_activity("Staff deleted draft report", ["report_pk" => $report_pk]);
+                set_flash_message('success', "Draft report deleted.");
+                header("Location: reports.php");
+                exit();
+            }
+
             $report_type = $_POST['report_type'] ?? '';
             if (!in_array($report_type, ['DAILY', 'WEEKLY'], true)) {
                 throw new Exception("Choose a valid report type.");
@@ -138,24 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 set_flash_message('success', "Your " . strtolower($report_type) . " report has been " . ($status === 'SUBMITTED' ? 'submitted' : 'saved as draft') . ".");
-                header("Location: reports.php");
-                exit();
-            } elseif ($action === 'delete') {
-                $report_pk = sanitize($_POST['report_pk'] ?? '');
-                $stmt = $conn->prepare("SELECT id, status FROM staff_reports WHERE id = ? AND staff_id = ? AND status = 'DRAFT'");
-                $stmt->bind_param("ss", $report_pk, $staff_id);
-                $stmt->execute();
-                $existing = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-                if (!$existing) {
-                    throw new Exception("Only draft reports can be deleted.");
-                }
-                $stmt = $conn->prepare("DELETE FROM staff_reports WHERE id = ? AND staff_id = ?");
-                $stmt->bind_param("ss", $report_pk, $staff_id);
-                $stmt->execute();
-                $stmt->close();
-                log_activity("Staff deleted draft report", ["report_pk" => $report_pk]);
-                set_flash_message('success', "Draft report deleted.");
                 header("Location: reports.php");
                 exit();
             } else {
@@ -297,7 +300,7 @@ include __DIR__ . '/../includes/header.php';
                 <span><i data-lucide="clock" class="w-3 h-3 mr-1"></i> Reports are saved as drafts by default.</span>
             </div>
             <div class="flex space-x-2">
-                <button type="button" onclick="document.getElementById('status-input').value='DRAFT'" class="px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Save as Draft</button>
+                <button type="submit" onclick="document.getElementById('status-input').value='DRAFT'" class="px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Save as Draft</button>
                 <input type="hidden" name="status" id="status-input" value="<?php echo $edit_report ? $edit_report['status'] : 'DRAFT'; ?>">
                 <button type="submit" onclick="document.getElementById('status-input').value='SUBMITTED'" class="px-4 py-1.5 bg-[#17264A] hover:bg-[#22355f] text-white font-bold rounded-lg text-xs">Submit Report</button>
             </div>
